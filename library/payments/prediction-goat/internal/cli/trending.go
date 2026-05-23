@@ -17,9 +17,11 @@ type marketScreenItem struct {
 	ID             string  `json:"id"`
 	Title          string  `json:"title"`
 	YesProbability float64 `json:"yesProbability,omitempty"`
+	YesPercent     float64 `json:"yesPercent,omitempty"`
 	Volume24h      float64 `json:"volume24h,omitempty"`
 	Liquidity      float64 `json:"liquidity,omitempty"`
 	EndDate        string  `json:"endDate,omitempty"`
+	Untraded       bool    `json:"untraded,omitempty"`
 }
 
 type trendingItem = marketScreenItem
@@ -144,7 +146,7 @@ func runMarketScreenOneVenue(cmd *cobra.Command, db *store.Store, screen, venue 
 		if err := rows.Scan(&source, &id, &title, &yes, &volume, &liquidity, &endDate); err != nil {
 			return nil, fmt.Errorf("%s scan: %w", screen, err)
 		}
-		items = append(items, marketScreenItem{Source: source.String, ID: id.String, Title: title.String, YesProbability: yes.Float64, Volume24h: volume.Float64, Liquidity: liquidity.Float64, EndDate: endDate.String})
+		items = append(items, marketScreenItem{Source: source.String, ID: id.String, Title: title.String, YesProbability: yes.Float64, YesPercent: yesPercent(yes.Float64), Volume24h: volume.Float64, Liquidity: liquidity.Float64, EndDate: endDate.String})
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("%s rows: %w", screen, err)
@@ -364,6 +366,37 @@ func formatProb(v float64) string {
 		return ""
 	}
 	return fmt.Sprintf("%.1f%%", v*100)
+}
+
+// yesPercent returns the 0-100 percent companion of a 0-1 yesProbability,
+// rounded to one decimal place. JSON output carries both fields:
+// `yesProbability` is the canonical machine representation; `yesPercent`
+// is the apples-to-apples display value agents can surface directly. A
+// zero input yields zero so the omitempty tag suppresses it in JSON, the
+// same convention formatProb uses for human-readable text.
+func yesPercent(v float64) float64 {
+	if v == 0 {
+		return 0
+	}
+	rounded := float64(int(v*1000+0.5)) / 10
+	return rounded
+}
+
+// isUntradedKalshi flags Kalshi markets whose displayed YES ask is the
+// platform-default 17c rather than a real implied probability. The three
+// signals together identify untraded markets: no last trade, no 24h
+// volume, and a YES ask + NO ask that overshoots $1.00 by more than 10c
+// (a tight book sums to roughly $1.00 plus the maker fee). Polymarket
+// markets without volume are not flagged here; the threshold logic only
+// fires on the Kalshi-specific default-ask pattern.
+func isUntradedKalshi(yesAsk, noAsk, lastPrice, volume24h float64) bool {
+	if lastPrice > 0 || volume24h > 0 {
+		return false
+	}
+	if yesAsk <= 0 && noAsk <= 0 {
+		return false
+	}
+	return (yesAsk+noAsk)-1.0 > 0.10
 }
 
 func formatNumber(v float64) string {

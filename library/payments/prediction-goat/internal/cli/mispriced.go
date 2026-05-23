@@ -15,10 +15,11 @@ import (
 )
 
 type mispricedPair struct {
-	Match  float64      `json:"match"`
-	PM     compareVenue `json:"polymarket"`
-	Kalshi compareVenue `json:"kalshi"`
-	Delta  float64      `json:"delta"`
+	Match        float64      `json:"match"`
+	PM           compareVenue `json:"polymarket"`
+	Kalshi       compareVenue `json:"kalshi"`
+	Delta        float64      `json:"delta"`
+	DeltaPercent float64      `json:"deltaPercent"`
 }
 
 type mispricedResult struct {
@@ -112,11 +113,19 @@ ORDER BY CAST(COALESCE(json_extract(data,'$.volume_24h_fp'),0) AS REAL) DESC LIM
 			continue
 		}
 		kalshi := kalshiMarkets[bestIdx]
+		// Untraded Kalshi markets carry a platform-default ask rather than
+		// a real implied probability; pairing them with Polymarket markets
+		// produces false-positive divergence (e.g. Polymarket 6% vs an
+		// untraded Kalshi default of 17%). Skip them silently — the screen
+		// is for actionable cross-venue mispricings, not noise.
+		if kalshi.Untraded {
+			continue
+		}
 		delta := pm.YesProbability - kalshi.YesProbability
 		if math.Abs(delta) < threshold {
 			continue
 		}
-		pairs = append(pairs, mispricedPair{Match: bestScore, PM: compareVenueFromRaw(pm), Kalshi: compareVenueFromRaw(kalshi), Delta: delta})
+		pairs = append(pairs, mispricedPair{Match: bestScore, PM: compareVenueFromRaw(pm), Kalshi: compareVenueFromRaw(kalshi), Delta: delta, DeltaPercent: roundDelta(delta)})
 	}
 	sort.Slice(pairs, func(i, j int) bool {
 		return math.Abs(pairs[i].Delta) > math.Abs(pairs[j].Delta)
@@ -148,6 +157,19 @@ func loadMispricedMarkets(cmd *cobra.Command, db *store.Store, query, resourceTy
 		}
 	}
 	return markets, rows.Err()
+}
+
+// roundDelta returns the signed probability delta rendered as a percent
+// rounded to one decimal place. Pairs the canonical 0-1 `delta` field with
+// a `deltaPercent` companion for apples-to-apples cross-venue display.
+func roundDelta(delta float64) float64 {
+	sign := 1.0
+	abs := delta
+	if delta < 0 {
+		sign = -1.0
+		abs = -delta
+	}
+	return sign * float64(int(abs*1000+0.5)) / 10
 }
 
 func tokenJaccard(a, b string) float64 {

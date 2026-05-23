@@ -26,9 +26,11 @@ type compareVenue struct {
 	ID             string  `json:"id"`
 	Title          string  `json:"title"`
 	YesProbability float64 `json:"yesProbability"`
+	YesPercent     float64 `json:"yesPercent,omitempty"`
 	Volume24h      float64 `json:"volume24h"`
 	EndDate        string  `json:"endDate"`
 	URL            string  `json:"url"`
+	Untraded       bool    `json:"untraded,omitempty"`
 }
 
 type compareResult struct {
@@ -41,9 +43,13 @@ type rawMarket struct {
 	ID             string
 	Title          string
 	YesProbability float64
+	YesAsk         float64
+	NoAsk          float64
+	LastPrice      float64
 	Volume24h      float64
 	EndDate        string
 	URL            string
+	Untraded       bool
 }
 
 func newCompareCmd(flags *rootFlags) *cobra.Command {
@@ -188,7 +194,8 @@ func rawMarketFromJSON(resourceType, fallbackID, raw string) (rawMarket, bool) {
 	switch resourceType {
 	case "markets":
 		id := firstNonEmpty(jsonString(obj, "slug"), fallbackID)
-		return rawMarket{Venue: "polymarket", ID: id, Title: firstNonEmpty(jsonString(obj, "question"), jsonString(obj, "title")), YesProbability: jsonFloat(obj, "lastTradePrice"), Volume24h: firstFloat(obj, "volume24h", "volume24hr", "volumeNum"), EndDate: jsonString(obj, "endDate"), URL: "https://polymarket.com/market/" + id}, true
+		yes := jsonFloat(obj, "lastTradePrice")
+		return rawMarket{Venue: "polymarket", ID: id, Title: firstNonEmpty(jsonString(obj, "question"), jsonString(obj, "title")), YesProbability: yes, LastPrice: yes, Volume24h: firstFloat(obj, "volume24h", "volume24hr", "volumeNum"), EndDate: jsonString(obj, "endDate"), URL: "https://polymarket.com/market/" + id}, true
 	case "kalshi_markets":
 		id := firstNonEmpty(jsonString(obj, "ticker"), fallbackID)
 		eventTicker := jsonString(obj, "event_ticker")
@@ -200,14 +207,19 @@ func rawMarketFromJSON(resourceType, fallbackID, raw string) (rawMarket, bool) {
 		if looksLikeMultiLegTitle(title) && eventTicker != "" {
 			title = eventTicker
 		}
-		return rawMarket{Venue: "kalshi", ID: id, Title: title, YesProbability: jsonFloat(obj, "last_price_dollars"), Volume24h: jsonFloat(obj, "volume_24h_fp"), EndDate: jsonString(obj, "expiration_time"), URL: "https://kalshi.com/markets/" + eventTicker + "/" + id}, true
+		yesAsk := jsonFloat(obj, "yes_ask_dollars")
+		noAsk := jsonFloat(obj, "no_ask_dollars")
+		lastPrice := jsonFloat(obj, "last_price_dollars")
+		volume24h := jsonFloat(obj, "volume_24h_fp")
+		untraded := isUntradedKalshi(yesAsk, noAsk, lastPrice, volume24h)
+		return rawMarket{Venue: "kalshi", ID: id, Title: title, YesProbability: lastPrice, YesAsk: yesAsk, NoAsk: noAsk, LastPrice: lastPrice, Volume24h: volume24h, EndDate: jsonString(obj, "expiration_time"), URL: "https://kalshi.com/markets/" + eventTicker + "/" + id, Untraded: untraded}, true
 	default:
 		return rawMarket{}, false
 	}
 }
 
 func compareVenueFromRaw(m rawMarket) compareVenue {
-	return compareVenue{ID: m.ID, Title: m.Title, YesProbability: m.YesProbability, Volume24h: m.Volume24h, EndDate: m.EndDate, URL: m.URL}
+	return compareVenue{ID: m.ID, Title: m.Title, YesProbability: m.YesProbability, YesPercent: yesPercent(m.YesProbability), Volume24h: m.Volume24h, EndDate: m.EndDate, URL: m.URL, Untraded: m.Untraded}
 }
 
 func printCompareTable(w io.Writer, pairs []comparePair) error {

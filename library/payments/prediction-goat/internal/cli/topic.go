@@ -8,6 +8,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
+	"sort"
 	"strings"
 	"text/tabwriter"
 
@@ -22,25 +24,45 @@ type topicHit struct {
 	Title          string  `json:"title"`
 	Status         string  `json:"status,omitempty"`
 	YesProbability float64 `json:"yesProbability,omitempty"`
+	YesPercent     float64 `json:"yesPercent,omitempty"`
 	Volume24h      float64 `json:"volume24h,omitempty"`
 	EndDate        string  `json:"endDate,omitempty"`
 	URL            string  `json:"url,omitempty"`
+	Untraded       bool    `json:"untraded,omitempty"`
+	ExpandedFrom   string  `json:"expandedFrom,omitempty"`
+	// rankScore is the per-hit ranking score (BM25 plus volume weighting)
+	// used by the cross-venue re-rank. Not emitted in JSON output.
+	rankScore float64
 }
 
 type topicResult struct {
-	Topic string     `json:"topic"`
-	Count int        `json:"count"`
-	Hits  []topicHit `json:"hits"`
+	Topic     string     `json:"topic"`
+	Count     int        `json:"count"`
+	Truncated bool       `json:"truncated,omitempty"`
+	Hits      []topicHit `json:"hits"`
 }
+
+// topicSearchWindow is the over-fetch multiplier the vol-weighted re-rank
+// uses. The SQL LIMIT pulls min(window*limit, maxWindow) rows by BM25; the
+// Go re-rank then sorts them by a weighted combination of BM25 rank and
+// log-volume so high-volume series-winner markets (e.g. KXNBAWEST at $29M)
+// surface above unrelated FTS matches with higher term frequency.
+const (
+	topicSearchWindow    = 4
+	topicSearchMaxWindow = 200
+	topicVolWeight       = 0.20
+)
 
 func newTopicCmd(flags *rootFlags) *cobra.Command {
 	var limit int
 	var dbPath string
+	var activeOnly bool
+	var withPrices bool
 	cmd := &cobra.Command{
 		Use:   "topic <name>",
 		Short: "Cross-venue topic bundle (slim ranked markets/events/tags from Polymarket and Kalshi)",
-		Example: `  prediction-goat-pp-cli topic kanye-west --json
-  prediction-goat-pp-cli topic 'arizona basketball' --limit 20`,
+		Example: `  prediction-goat-pp-cli topic kanye --json
+  prediction-goat-pp-cli topic 'arizona basketball' --limit 20 --with-prices`,
 		Annotations: map[string]string{"mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
@@ -58,23 +80,47 @@ func newTopicCmd(flags *rootFlags) *cobra.Command {
 			}
 			defer db.Close()
 			topic := strings.Join(args, " ")
-			// Run two independent FTS searches per venue so a heavier-corpus
-			// venue (Kalshi has events+series+markets, Polymarket has
-			// markets+events+tags) cannot crowd the other out via raw rank.
-			// Each side gets up to `limit` rows; they are then interleaved
-			// round-robin and trimmed to the final `limit`.
+			searchLimit := topicSearchWindow * limit
+			if searchLimit > topicSearchMaxWindow {
+				searchLimit = topicSearchMaxWindow
+			}
+			if searchLimit < limit {
+				searchLimit = limit
+			}
 			polyTypes := []string{"markets", "events", "tags"}
 			kalshiTypes := []string{"kalshi_markets", "kalshi_events", "kalshi_series"}
-			polyHits, err := topicSearchByTypes(cmd.Context(), db.DB(), topicFTSQuery(topic), polyTypes, limit)
+			polyHits, err := topicSearchByTypes(cmd.Context(), db.DB(), topicFTSQuery(topic), polyTypes, searchLimit)
 			if err != nil {
 				return fmt.Errorf("topic search polymarket: %w", err)
 			}
-			kalshiHits, err := topicSearchByTypes(cmd.Context(), db.DB(), topicFTSQuery(topic), kalshiTypes, limit)
+			kalshiHits, err := topicSearchByTypes(cmd.Context(), db.DB(), topicFTSQuery(topic), kalshiTypes, searchLimit)
 			if err != nil {
 				return fmt.Errorf("topic search kalshi: %w", err)
 			}
+			// Vol-weighted re-rank: each side already arrives BM25-sorted
+			// (lower-rank-better in SQLite FTS5). Re-score by combining
+			// BM25-position with log-volume so high-volume mainline markets
+			// surface above thin BM25-favored siblings.
+			sortHitsByScore(polyHits)
+			sortHitsByScore(kalshiHits)
+			if activeOnly {
+				kalshiHits = filterActiveOnly(cmd.Context(), db.DB(), kalshiHits)
+				polyHits = filterPolyActiveOnly(polyHits)
+			}
+			truncated := len(polyHits)+len(kalshiHits) > limit
 			results := interleaveTopicHits(polyHits, kalshiHits, limit)
-			result := topicResult{Topic: topic, Count: len(results), Hits: results}
+			// Force-include: if a query token names an outcome that did
+			// not make the truncated set, append it. This catches multi-
+			// outcome events where one participant's market gets buried by
+			// the BM25 + volume rerank (e.g. USA in a 48-team World Cup).
+			results = forceIncludeNamedOutcomes(results, polyHits, kalshiHits, topicQueryTokens(topic), limit)
+			if withPrices {
+				results = expandWithPrices(cmd.Context(), db.DB(), results)
+			}
+			for i := range results {
+				results[i].YesPercent = yesPercent(results[i].YesProbability)
+			}
+			result := topicResult{Topic: topic, Count: len(results), Truncated: truncated, Hits: results}
 			if flags.asJSON || !isTerminal(cmd.OutOrStdout()) {
 				if err := printJSONFiltered(cmd.OutOrStdout(), result, flags); err != nil {
 					return err
@@ -88,8 +134,10 @@ func newTopicCmd(flags *rootFlags) *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().IntVar(&limit, "limit", 50, "Max results")
+	cmd.Flags().IntVar(&limit, "limit", 100, "Max results")
 	cmd.Flags().StringVar(&dbPath, "db", "", "Database path (default: standard cache location)")
+	cmd.Flags().BoolVar(&activeOnly, "active-only", true, "Suppress series whose events are all closed and Polymarket markets marked closed")
+	cmd.Flags().BoolVar(&withPrices, "with-prices", false, "Resolve series shells to the top active market under them so prices appear inline")
 	return cmd
 }
 
@@ -101,7 +149,7 @@ func topicSearchByTypes(ctx context.Context, db *sql.DB, ftsQuery string, types 
 		return nil, nil
 	}
 	placeholders := strings.TrimSuffix(strings.Repeat("?,", len(types)), ",")
-	q := `SELECT r.resource_type, r.id, r.data FROM resources r
+	q := `SELECT r.resource_type, r.id, r.data, rank FROM resources r
 JOIN resources_fts f ON r.id = f.id AND r.resource_type = f.resource_type
 WHERE resources_fts MATCH ?
 AND r.resource_type IN (` + placeholders + `)
@@ -118,9 +166,11 @@ ORDER BY rank LIMIT ?`
 	}
 	defer rows.Close()
 	hits := make([]topicHit, 0)
+	position := 0
 	for rows.Next() {
 		var typ, id, data sql.NullString
-		if err := rows.Scan(&typ, &id, &data); err != nil {
+		var rank sql.NullFloat64
+		if err := rows.Scan(&typ, &id, &data, &rank); err != nil {
 			return nil, err
 		}
 		if !typ.Valid || !data.Valid {
@@ -128,13 +178,230 @@ ORDER BY rank LIMIT ?`
 		}
 		hit, ok := topicHitFromJSON(typ.String, id.String, data.String)
 		if ok {
+			// Score = BM25 (more negative = better in FTS5) combined with
+			// log(1 + volume24h). Negate BM25 so larger is better, then
+			// add a volume bonus. Empty volume contributes zero so pure
+			// FTS rank dominates when no volume signal exists.
+			bm25 := -rank.Float64
+			volBonus := 0.0
+			if hit.Volume24h > 0 {
+				volBonus = math.Log1p(hit.Volume24h) * topicVolWeight
+			}
+			hit.rankScore = bm25 + volBonus
 			hits = append(hits, hit)
 		}
+		position++
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
 	return hits, nil
+}
+
+// sortHitsByScore orders hits with the highest rankScore first (BM25 plus
+// volume bonus). Stable sort preserves SQL order on ties.
+func sortHitsByScore(hits []topicHit) {
+	sort.SliceStable(hits, func(i, j int) bool {
+		return hits[i].rankScore > hits[j].rankScore
+	})
+}
+
+// filterActiveOnly drops Kalshi series whose events are all closed or
+// settled. The store joins kalshi_events to kalshi_series via the
+// series_ticker JSON field, so existence of any active event under the
+// series ticker is the cheap inclusion check.
+func filterActiveOnly(ctx context.Context, db *sql.DB, hits []topicHit) []topicHit {
+	out := make([]topicHit, 0, len(hits))
+	for _, h := range hits {
+		if h.Source != "kalshi" || h.Kind != "series" {
+			out = append(out, h)
+			continue
+		}
+		var count int
+		row := db.QueryRowContext(ctx, `SELECT COUNT(1) FROM resources
+WHERE resource_type='kalshi_events'
+AND json_extract(data,'$.series_ticker') = ?
+LIMIT 1`, h.ID)
+		if err := row.Scan(&count); err != nil || count == 0 {
+			// Fall back to kalshi_markets check when no events row exists
+			// for the series — some series ship only markets, not parent
+			// events. A live market under the series ticker counts as
+			// active.
+			marketRow := db.QueryRowContext(ctx, `SELECT COUNT(1) FROM resources
+WHERE resource_type='kalshi_markets'
+AND json_extract(data,'$.series_ticker') = ?
+AND json_extract(data,'$.status') = 'active'
+LIMIT 1`, h.ID)
+			var marketCount int
+			if mErr := marketRow.Scan(&marketCount); mErr != nil || marketCount == 0 {
+				continue
+			}
+		}
+		out = append(out, h)
+	}
+	return out
+}
+
+// filterPolyActiveOnly drops Polymarket hits whose stored status indicates
+// closed/inactive. Status is populated by topicHitFromJSON's pmStatus.
+func filterPolyActiveOnly(hits []topicHit) []topicHit {
+	out := make([]topicHit, 0, len(hits))
+	for _, h := range hits {
+		if h.Source == "polymarket" && (h.Status == "closed" || h.Status == "inactive") {
+			continue
+		}
+		out = append(out, h)
+	}
+	return out
+}
+
+// forceIncludeNamedOutcomes appends hits whose Title contains a query token
+// as a whole word but did not make the truncated result set. Catches the
+// case where a query names an outcome buried below the BM25+vol cap, e.g.
+// "USA" in a 48-team World Cup event.
+func forceIncludeNamedOutcomes(results, polyHits, kalshiHits []topicHit, tokens []string, limit int) []topicHit {
+	if len(tokens) == 0 {
+		return results
+	}
+	seen := make(map[string]struct{}, len(results))
+	for _, h := range results {
+		seen[h.Source+"|"+h.ID] = struct{}{}
+	}
+	pool := make([]topicHit, 0, len(polyHits)+len(kalshiHits))
+	pool = append(pool, polyHits...)
+	pool = append(pool, kalshiHits...)
+	for _, h := range pool {
+		if _, dup := seen[h.Source+"|"+h.ID]; dup {
+			continue
+		}
+		lower := strings.ToLower(h.Title)
+		matched := false
+		for _, tok := range tokens {
+			if containsWord(lower, tok) {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			continue
+		}
+		results = append(results, h)
+		seen[h.Source+"|"+h.ID] = struct{}{}
+	}
+	if len(results) > limit*2 {
+		// Hard cap on force-include expansion; never inflate beyond 2x
+		// the user's requested limit even if many tokens match.
+		results = results[:limit*2]
+	}
+	return results
+}
+
+// containsWord returns true if `tok` appears as a whole word inside `s`.
+// Used by force-include so "USA" matches "Will USA win" but not "USA-
+// branded foo" or "Caused by it". s is expected to be lowercased.
+func containsWord(s, tok string) bool {
+	if tok == "" {
+		return false
+	}
+	for {
+		idx := strings.Index(s, tok)
+		if idx < 0 {
+			return false
+		}
+		left := idx == 0 || !isWordRune(s[idx-1])
+		right := idx+len(tok) == len(s) || !isWordRune(s[idx+len(tok)])
+		if left && right {
+			return true
+		}
+		s = s[idx+1:]
+	}
+}
+
+func isWordRune(b byte) bool {
+	return (b >= 'a' && b <= 'z') || (b >= '0' && b <= '9')
+}
+
+// expandWithPrices replaces Kalshi series shells and Polymarket event
+// shells with their highest-volume active market sibling so a single
+// `topic` call surfaces actionable prices instead of empty title rows.
+// Pure-local: queries the synced store, no live API calls.
+func expandWithPrices(ctx context.Context, db *sql.DB, hits []topicHit) []topicHit {
+	for i := range hits {
+		switch {
+		case hits[i].Source == "kalshi" && hits[i].Kind == "series":
+			if priced, ok := kalshiTopMarketForSeries(ctx, db, hits[i].ID); ok {
+				priced.ExpandedFrom = "series:" + hits[i].ID
+				hits[i] = priced
+			}
+		case hits[i].Source == "polymarket" && hits[i].Kind == "event":
+			if priced, ok := polymarketTopMarketForEvent(ctx, db, hits[i].ID); ok {
+				priced.ExpandedFrom = "event:" + hits[i].ID
+				hits[i] = priced
+			}
+		}
+	}
+	return hits
+}
+
+// kalshiTopMarketForSeries returns the highest-volume active market under
+// a Kalshi series ticker, formatted as a topicHit. Returns false when no
+// active market exists.
+func kalshiTopMarketForSeries(ctx context.Context, db *sql.DB, seriesTicker string) (topicHit, bool) {
+	row := db.QueryRowContext(ctx, `SELECT id, data FROM resources
+WHERE resource_type='kalshi_markets'
+AND json_extract(data,'$.series_ticker') = ?
+AND json_extract(data,'$.status') = 'active'
+ORDER BY CAST(COALESCE(json_extract(data,'$.volume_24h_fp'),0) AS REAL) DESC
+LIMIT 1`, seriesTicker)
+	var id, data sql.NullString
+	if err := row.Scan(&id, &data); err != nil || !data.Valid {
+		return topicHit{}, false
+	}
+	return topicHitFromJSON("kalshi_markets", id.String, data.String)
+}
+
+// polymarketTopMarketForEvent returns the highest-volume open market under
+// a Polymarket event slug. Polymarket events embed their child markets in
+// the events table's data column as a `markets` array; the helper expands
+// the highest-volumed entry. Returns false if no open child market exists.
+func polymarketTopMarketForEvent(ctx context.Context, db *sql.DB, eventSlug string) (topicHit, bool) {
+	row := db.QueryRowContext(ctx, `SELECT data FROM resources
+WHERE resource_type='events'
+AND json_extract(data,'$.slug') = ?
+LIMIT 1`, eventSlug)
+	var data sql.NullString
+	if err := row.Scan(&data); err != nil || !data.Valid {
+		return topicHit{}, false
+	}
+	var event map[string]any
+	if err := json.Unmarshal([]byte(data.String), &event); err != nil {
+		return topicHit{}, false
+	}
+	markets, _ := event["markets"].([]any)
+	var best map[string]any
+	bestVol := -1.0
+	for _, m := range markets {
+		mObj, ok := m.(map[string]any)
+		if !ok {
+			continue
+		}
+		if jsonString(mObj, "closed") == "true" {
+			continue
+		}
+		vol := firstFloat(mObj, "volume24h", "volume24hr", "volumeNum")
+		if vol > bestVol {
+			bestVol = vol
+			best = mObj
+		}
+	}
+	if best == nil {
+		return topicHit{}, false
+	}
+	raw, err := json.Marshal(best)
+	if err != nil {
+		return topicHit{}, false
+	}
+	return topicHitFromJSON("markets", jsonString(best, "slug"), string(raw))
 }
 
 // interleaveTopicHits round-robins two ranked venue slices into one bundle
@@ -200,7 +467,12 @@ func topicHitFromJSON(resourceType, fallbackID, raw string) (topicHit, bool) {
 	case "kalshi_markets":
 		id = firstNonEmpty(jsonString(obj, "ticker"), id)
 		eventTicker := jsonString(obj, "event_ticker")
-		h = topicHit{Source: "kalshi", Kind: "market", ID: id, Title: jsonString(obj, "title"), Status: jsonString(obj, "status"), YesProbability: jsonFloat(obj, "last_price_dollars"), Volume24h: jsonFloat(obj, "volume_24h_fp"), EndDate: jsonString(obj, "expiration_time"), URL: "https://kalshi.com/markets/" + eventTicker + "/" + id}
+		yesAsk := jsonFloat(obj, "yes_ask_dollars")
+		noAsk := jsonFloat(obj, "no_ask_dollars")
+		lastPrice := jsonFloat(obj, "last_price_dollars")
+		volume24h := jsonFloat(obj, "volume_24h_fp")
+		untraded := isUntradedKalshi(yesAsk, noAsk, lastPrice, volume24h)
+		h = topicHit{Source: "kalshi", Kind: "market", ID: id, Title: jsonString(obj, "title"), Status: jsonString(obj, "status"), YesProbability: lastPrice, Volume24h: volume24h, EndDate: jsonString(obj, "expiration_time"), URL: "https://kalshi.com/markets/" + eventTicker + "/" + id, Untraded: untraded}
 	case "kalshi_events":
 		id = firstNonEmpty(jsonString(obj, "event_ticker"), id)
 		h = topicHit{Source: "kalshi", Kind: "event", ID: id, Title: jsonString(obj, "title"), EndDate: jsonString(obj, "strike_period"), URL: "https://kalshi.com/markets/" + id}
@@ -214,7 +486,11 @@ func topicHitFromJSON(resourceType, fallbackID, raw string) (topicHit, bool) {
 func topicRows(items []topicHit) [][]string {
 	rows := make([][]string, 0, len(items))
 	for _, it := range items {
-		rows = append(rows, []string{it.Source, it.Kind, it.Title, formatProb(it.YesProbability), formatNumber(it.Volume24h), it.EndDate})
+		probCell := formatProb(it.YesProbability)
+		if it.Untraded {
+			probCell = "untraded"
+		}
+		rows = append(rows, []string{it.Source, it.Kind, it.Title, probCell, formatNumber(it.Volume24h), it.EndDate})
 	}
 	return rows
 }
