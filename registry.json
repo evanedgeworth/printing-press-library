@@ -2,6 +2,104 @@
   "schema_version": 2,
   "entries": [
     {
+      "name": "1password",
+      "category": "auth",
+      "api": "1Password Agent Secrets",
+      "description": "Agent-safe command layer over the official 1Password CLI and SDK service-account workflows.",
+      "search_terms": [
+        "1password",
+        "1Password Agent Secrets",
+        "1password-pp-cli",
+        "Agent-safe command layer over the official 1Password CLI and SDK service-account workflows.",
+        "Fuzzy-to-exact secret resolver",
+        "secrets resolve",
+        "Resolve fuzzy agent requests to exact op:// vault/item/field references without printing values.",
+        "Exact-reference secret read",
+        "secrets read",
+        "Read only an exact op:// reference, with policy checks and an explicit --reveal gate before values are printed.",
+        "Secret selection explanation",
+        "secrets explain",
+        "Explain why a particular item and field was selected for a task without revealing the field value.",
+        "Secret access preflight",
+        "secrets preflight",
+        "Check whether a planned task or command appears to require secret values, documents, cards, or write permissions.",
+        "Environment reference planner",
+        "env plan",
+        "Parse .env, config, or shell files for missing variables and map them to safe op:// references.",
+        "Explicit environment injector",
+        "env inject",
+        "Wrap op inject with a redacted plan first and require --write before producing an output file.",
+        "Item category classifier",
+        "items classify",
+        "Find secure notes that look like API credentials, logins, SSH keys, cards, or documents.",
+        "Duplicate item detector",
+        "items duplicates",
+        "Detect duplicate titles, URLs, usernames, and likely copied credentials across vaults without printing secret values.",
+        "Item ownership audit",
+        "items ownership",
+        "Flag shared or service credentials missing owner, purpose, rotation, or environment tags.",
+        "Credit-card metadata audit",
+        "cards audit",
+        "Find cards stored as notes or logins, missing owner/purpose tags, or CVV-like fields without printing card values.",
+        "Card field resolver",
+        "cards resolve",
+        "Return card item and field references without printing card numbers, expiry values, or CVVs.",
+        "Document metadata inventory",
+        "documents inventory",
+        "List document metadata and exact references without downloading document contents.",
+        "Document metadata audit",
+        "documents audit",
+        "Flag sensitive filenames, oversized docs, private-key/cert-like documents, and documents in shared vaults.",
+        "Share safety preflight",
+        "share preflight",
+        "Before sharing an item, show recipient, item category, included fields, expiry, and risk.",
+        "Share support audit",
+        "share audit",
+        "Report whether existing/shareable item link inspection is supported by op or the SDK and document unsupported status clearly.",
+        "Agent policy checker",
+        "policy check",
+        "Enforce rules such as never reading credit-card values, exact refs for production, and required owner tags.",
+        "Service-account access scope",
+        "access scope",
+        "Summarize what the current service account or op session can access by vault, category, and count without values.",
+        "Service-account rate-limit status",
+        "rate-limit status",
+        "Wrap op service-account ratelimit so agents can avoid burning quota.",
+        "Minimum grant planner",
+        "agent grant-plan",
+        "Suggest the minimum service-account vault permissions needed for a task.",
+        "op run reference planner",
+        "run plan",
+        "Inspect an op run command or env files and show which secret references will resolve before executing.",
+        "Stale metadata audit",
+        "audit stale",
+        "Flag items that appear old, untagged, duplicated, or probably unused from metadata.",
+        "Misplaced item audit",
+        "audit misplaced",
+        "Find API keys, cards, documents, or SSH material saved in the wrong 1Password category."
+      ],
+      "path": "library/auth/1password",
+      "printer": "cathrynlavery",
+      "printer_name": "Cathryn Lavery",
+      "creator": {
+        "handle": "cathrynlavery",
+        "name": "Cathryn Lavery"
+      },
+      "mcp": {
+        "binary": "1password-pp-mcp",
+        "transports": [
+          "stdio",
+          "http"
+        ],
+        "tool_count": 1,
+        "public_tool_count": 1,
+        "auth_type": "none",
+        "env_vars": [],
+        "mcp_ready": "full",
+        "spec_format": "local-sqlite"
+      }
+    },
+    {
       "name": "adguard-home",
       "category": "monitoring",
       "api": "AdGuard Home",
@@ -219,6 +317,12 @@
         "handle": "mvanhorn",
         "name": "Matt Van Horn"
       },
+      "contributors": [
+        {
+          "handle": "tmchow",
+          "name": "Trevin Chow"
+        }
+      ],
       "mcp": {
         "binary": "airbnb-pp-mcp",
         "transports": [
@@ -300,7 +404,13 @@
       "creator": {
         "handle": "mvanhorn",
         "name": "Matt Van Horn"
-      }
+      },
+      "contributors": [
+        {
+          "handle": "tmchow",
+          "name": "Trevin Chow"
+        }
+      ]
     },
     {
       "name": "allrecipes",
@@ -510,6 +620,12 @@
         "handle": "bwishan",
         "name": "Brian Wishan"
       },
+      "contributors": [
+        {
+          "handle": "tmchow",
+          "name": "Trevin Chow"
+        }
+      ],
       "mcp": {
         "binary": "amazon-orders-pp-mcp",
         "transports": [
@@ -653,6 +769,12 @@
       "path": "library/education/ankiweb",
       "printer": "paulb",
       "printer_name": "Paul Bockewitz",
+      "contributors": [
+        {
+          "handle": "tmchow",
+          "name": "Trevin Chow"
+        }
+      ],
       "mcp": {
         "binary": "ankiweb-pp-mcp",
         "transports": [
@@ -1513,6 +1635,12 @@
         "handle": "mvanhorn",
         "name": "Matt Van Horn"
       },
+      "contributors": [
+        {
+          "handle": "tmchow",
+          "name": "Trevin Chow"
+        }
+      ],
       "mcp": {
         "binary": "booking-com-pp-mcp",
         "transports": [
@@ -1963,6 +2091,62 @@
         ],
         "mcp_ready": "full",
         "spec_format": "openapi3"
+      }
+    },
+    {
+      "name": "cloudflare",
+      "category": "cloud",
+      "api": "Cloudflare",
+      "description": "Agent-ready CLI for Cloudflare accounts, zones, DNS, Workers, Pages, R2, tunnels, Zero Trust, and infrastructure operations.",
+      "search_terms": [
+        "cloudflare",
+        "cloudflare-pp-cli",
+        "Cloudflare API for accounts, zones, DNS, Workers, Pages, R2, Email Routing, tunnels, and Zero Trust operations",
+        "Token recipes and diagnostics",
+        "token doctor --recipe site-launch --account <id>",
+        "Resolve Cloudflare token permission recipes through live permission group IDs and report whether the current token can support the workflow.",
+        "Agent-admin token bootstrap",
+        "agent admin --write-env .env.cloudflare-admin",
+        "Create or guide a token-management bootstrap token that can mint recipe-scoped API tokens for other agents, with redaction and dashboard fallback.",
+        "Project launch and preview",
+        "project launch ./dist --project <name> --account <id> --domain <host>",
+        "Plan or launch a Cloudflare Pages/Workers project, including static output detection, deployment mode choice, and optional domain attachment.",
+        "Domain connect",
+        "domain connect <host> --target pages --project <name> --account <id> --zone <id>",
+        "Connect hostnames to Pages, Workers, tunnels, or R2 with product-specific API calls instead of dashboard spelunking.",
+        "Worker secrets",
+        "worker secret put <name> --script <worker> --account <id> --from-env <ENV>",
+        "Set, list, and delete Worker secrets with redacted output and explicit confirmation gates.",
+        "AI and agent infrastructure bootstrap",
+        "agent memory bootstrap --account <id> --name <name>",
+        "Plan or create Cloudflare resources for AI agents and RAG stacks, including R2, D1, Vectorize, AI Gateway, KV, and Queues.",
+        "Operations diagnostics",
+        "zone doctor --zone <id> --hostname <host>",
+        "Inspect Cloudflare zone, DNS, SSL/settings, Email Routing, and Worker-route readiness through one read-only command.",
+        "Cost and deployment controls",
+        "cost scan --account <id>",
+        "Read billable usage and AI Gateway usage signals, with deployment rollback workflows for Pages production releases."
+      ],
+      "path": "library/cloud/cloudflare",
+      "printer": "cathrynlavery",
+      "printer_name": "Cathryn Lavery",
+      "creator": {
+        "handle": "cathrynlavery",
+        "name": "Cathryn Lavery"
+      },
+      "mcp": {
+        "binary": "cloudflare-pp-mcp",
+        "transports": [
+          "stdio",
+          "http"
+        ],
+        "tool_count": 3106,
+        "public_tool_count": 4,
+        "auth_type": "bearer_token",
+        "env_vars": [
+          "CLOUDFLARE_API_TOKEN"
+        ],
+        "mcp_ready": "full"
       }
     },
     {
@@ -3055,6 +3239,12 @@
         "handle": "mvanhorn",
         "name": "Matt Van Horn"
       },
+      "contributors": [
+        {
+          "handle": "tmchow",
+          "name": "Trevin Chow"
+        }
+      ],
       "mcp": {
         "binary": "ebay-pp-mcp",
         "transports": [
@@ -3291,6 +3481,12 @@
         "handle": "horknfbr",
         "name": "horknfbr"
       },
+      "contributors": [
+        {
+          "handle": "tmchow",
+          "name": "Trevin Chow"
+        }
+      ],
       "mcp": {
         "binary": "erank-pp-mcp",
         "transports": [
@@ -3641,6 +3837,12 @@
         "handle": "cathrynlavery",
         "name": "Cathryn Lavery"
       },
+      "contributors": [
+        {
+          "handle": "tmchow",
+          "name": "Trevin Chow"
+        }
+      ],
       "mcp": {
         "binary": "facebook-marketplace-pp-mcp",
         "transports": [
@@ -4027,6 +4229,34 @@
       }
     },
     {
+      "name": "foxnews",
+      "category": "media-and-entertainment",
+      "api": "Fox News",
+      "description": "Fox News headlines from Google Publisher RSS feeds on moxie.foxnews.com — section-selectable, no API key.",
+      "search_terms": [
+        "foxnews",
+        "Fox News",
+        "foxnews-pp-cli",
+        "Fox News headlines from Google Publisher RSS feeds on moxie.foxnews.com — section-selectable, no API key.",
+        "Section headlines",
+        "headlines",
+        "Fetch headlines from a Fox News RSS section (latest, world, politics, science, health, sports, travel, tech, opinion, video); defaults to latest.",
+        "List sections",
+        "sections",
+        "List available RSS section ids and feed paths for agents choosing a topic.",
+        "Agent context",
+        "agent-context",
+        "Emit structured JSON describing commands, RSS sections, default_section latest, and Drudge commands not available on this CLI."
+      ],
+      "path": "library/media-and-entertainment/foxnews",
+      "printer": "john-fiedler",
+      "printer_name": "John Fiedler",
+      "creator": {
+        "handle": "john-fiedler",
+        "name": "John Fiedler"
+      }
+    },
+    {
       "name": "freshservice",
       "category": "productivity",
       "api": "Freshservice",
@@ -4089,6 +4319,64 @@
       }
     },
     {
+      "name": "function-health",
+      "category": "other",
+      "api": "Function Health",
+      "description": "Every Function Health feature, plus a local SQLite store with biomarker trends across every round you've ever drawn",
+      "search_terms": [
+        "function-health",
+        "Function Health",
+        "function-health-pp-cli",
+        "Every Function Health feature, plus a local SQLite store with biomarker trends across every round you've ever drawn, plus a branded shareable PDF your doctor will actually read.",
+        "Branded doctor PDF",
+        "export pdf-for-doctor",
+        "Render a Function-branded multi-round lab report PDF with your name and date of birth, suitable for emailing to your personal physician.",
+        "Biomarker trend across all rounds",
+        "biomarker trend",
+        "Every value of a biomarker across every round you've ever drawn, with the delta from Function's optimal range, an ASCII sparkline in the terminal, and structured JSON for agents.",
+        "Drift-toward-optimal goat",
+        "goat",
+        "Ranks every biomarker by distance-from-optimal multiplied by its slope-away-from-optimal across the last 3 rounds; returns the single most worrying biomarker right now with reasoning fields.",
+        "Trending-worse cohort",
+        "biomarkers trending",
+        "Lists every biomarker whose slope across the last N rounds points away from Function's optimal range, sorted by magnitude.",
+        "Category-level health-score timeline",
+        "category trend",
+        "For one of the ~13 categories, returns a per-round aggregate score (percent of biomarkers inside Function's optimal range) over time.",
+        "Oscillation detector",
+        "biomarkers oscillating",
+        "Biomarkers that crossed the optimal-range boundary at least twice in the last N rounds — flags instability separate from trend.",
+        "LLM-ready bundle composer",
+        "bundle",
+        "Composes a single Markdown file with a biomarker's full history, every clinician note mentioning it (FTS5), Function's optimal range, and relevant recommendations — ready to paste into Claude or ChatGPT.",
+        "Recommendation resolution tracker",
+        "recommendations stale",
+        "Recommendations (supplements / foods) whose target biomarker is STILL outside Function's optimal range, joined by Quest code. The /recommendations endpoint has no issued-date, so staleness is by outcome not age; --min-rounds tightens to persistence and --group (supplements, foods_to_eat, foods_to_avoid) focuses a large set."
+      ],
+      "path": "library/other/function-health",
+      "printer": "DamienStevens",
+      "printer_name": "Damien Stevens",
+      "creator": {
+        "handle": "DamienStevens",
+        "name": "Damien Stevens"
+      },
+      "mcp": {
+        "binary": "function-health-pp-mcp",
+        "transports": [
+          "stdio",
+          "http"
+        ],
+        "tool_count": 16,
+        "public_tool_count": 0,
+        "auth_type": "bearer_token",
+        "env_vars": [
+          "FUNCTION_HEALTH_TOKEN"
+        ],
+        "mcp_ready": "full",
+        "spec_format": "internal"
+      }
+    },
+    {
       "name": "gisis",
       "category": "other",
       "api": "GISIS",
@@ -4122,6 +4410,12 @@
       "path": "library/other/gisis",
       "printer": "6myfzqx6bv-ctrl",
       "printer_name": "ivory_elephant",
+      "contributors": [
+        {
+          "handle": "tmchow",
+          "name": "Trevin Chow"
+        }
+      ],
       "mcp": {
         "binary": "gisis-pp-mcp",
         "transports": [
@@ -4557,6 +4851,12 @@
         "handle": "azaaron",
         "name": "mvanhorn"
       },
+      "contributors": [
+        {
+          "handle": "tmchow",
+          "name": "Trevin Chow"
+        }
+      ],
       "mcp": {
         "binary": "gravitus-pp-mcp",
         "transports": [
@@ -4762,6 +5062,12 @@
         "handle": "jwmoss",
         "name": "Jonathan Moss"
       },
+      "contributors": [
+        {
+          "handle": "tmchow",
+          "name": "Trevin Chow"
+        }
+      ],
       "mcp": {
         "binary": "harris-teeter-pp-mcp",
         "transports": [
@@ -5160,6 +5466,12 @@
         "handle": "omarshahine",
         "name": "Omar Shahine"
       },
+      "contributors": [
+        {
+          "handle": "tmchow",
+          "name": "Trevin Chow"
+        }
+      ],
       "mcp": {
         "binary": "jimmy-johns-pp-mcp",
         "transports": [
@@ -5568,6 +5880,12 @@
         "handle": "mvanhorn",
         "name": "Matt Van Horn"
       },
+      "contributors": [
+        {
+          "handle": "tmchow",
+          "name": "Trevin Chow"
+        }
+      ],
       "mcp": {
         "binary": "linear-pp-mcp",
         "transports": [
@@ -5838,6 +6156,36 @@
       "creator": {
         "handle": "salmonumbrella",
         "name": "salmonumbrella"
+      }
+    },
+    {
+      "name": "masterpark",
+      "category": "travel",
+      "api": "MasterPark",
+      "description": "Unofficial CLI for MasterPark airport parking locations, quotes, profile sync, and safe gated reservation booking.",
+      "search_terms": [
+        "masterpark",
+        "masterpark-pp-cli",
+        "Unofficial CLI for MasterPark airport parking reservations, including locations, quotes, safe credential injection, profile sync, reservation dry-runs, and gated booking submission.",
+        "Safe pay-at-lot reservation workflow",
+        "reserve",
+        "Composes reservations from live quotes and saved profile data, stays dry-run by default, requires --submit --yes for real bookings, and no-ops under PRINTING_PRESS_VERIFY=1.",
+        "Generic secret-command credential injection",
+        "auth check",
+        "Supports --username-command and --password-command so 1Password or any secret manager can inject credentials without printing or persisting passwords.",
+        "Saved non-secret customer and vehicle profile",
+        "auth sync-profile",
+        "Logs in once and stores only non-secret customer and vehicle defaults so future reservations can fill required fields without saving a password.",
+        "Fresh-booking verification caveat",
+        "reservations list",
+        "Documents that MasterPark's listReservations endpoint may lag or omit newly-created active reservations, so agents trust saveReservation responses and confirmation email immediately after booking."
+      ],
+      "path": "library/travel/masterpark",
+      "printer": "bwishan",
+      "printer_name": "Brian Wishan",
+      "creator": {
+        "handle": "bwishan",
+        "name": "Brian Wishan"
       }
     },
     {
@@ -6198,6 +6546,12 @@
         "handle": "nickscarabosio",
         "name": "Nick Scarabosio"
       },
+      "contributors": [
+        {
+          "handle": "tmchow",
+          "name": "Trevin Chow"
+        }
+      ],
       "mcp": {
         "binary": "myfitnesspal-pp-mcp",
         "transports": [
@@ -6834,6 +7188,65 @@
       }
     },
     {
+      "name": "openart",
+      "category": "ai",
+      "api": "OpenArt",
+      "description": "Generate videos and images on OpenArt from the terminal. Spend your existing OpenArt credits across Seedance, Kling,...",
+      "search_terms": [
+        "openart",
+        "openart-pp-cli",
+        "Generate videos and images on OpenArt from the terminal. Spend your existing OpenArt credits across Seedance, Kling, Veo, Wan, Grok Imagine and more.",
+        "Image generation",
+        "image gen",
+        "Submit + poll + download images in one command (Nano Banana verified; GPT Image 2, FLUX 2 Pro, Seedream, Imagen 4, Qwen Image gated as --accept-experimental).",
+        "Disable Seedance audio",
+        "video gen",
+        "--no-audio flag turns off Seedance's auto-generated audio track. Workaround for OutputAudioSensitiveContentDetected moderation failures; halves the cost on Seedance 2.0 normal mode.",
+        "Cost preview before submit",
+        "cost estimate",
+        "Project the credit cost of a generation before you spend.",
+        "Credit burn breakdown",
+        "credits burn",
+        "Aggregate credit spend by model, tool, day, or project.",
+        "Credit runway forecast",
+        "credits forecast",
+        "Project how many weeks of runway your current balance gives at recent burn.",
+        "Cheapest-model lookup",
+        "models cheapest",
+        "Find the cheapest model that satisfies a target shape (type/duration/resolution/features).",
+        "Cross-model fan-out compare",
+        "compare",
+        "Run one prompt across multiple models in parallel; return a side-by-side report with cost and URLs.",
+        "Replay a past generation",
+        "prompts replay",
+        "Re-run a past generation, optionally on a different model, with parameter bumps.",
+        "Prompt FTS recovery search",
+        "prompts find",
+        "Full-text search prior generations by prompt text with OpenArt-specific filters (model, audio, duration, starred, since).",
+        "Prompt spend leaderboard",
+        "prompts top",
+        "Rank past prompts by total credit spend over a window.",
+        "Library stats blob",
+        "stats",
+        "One-shot stats over the local media library: counts per type/model/period and rolling spend."
+      ],
+      "path": "library/ai/openart",
+      "printer": "mvanhorn",
+      "printer_name": "Matt Van Horn",
+      "mcp": {
+        "binary": "openart-pp-mcp",
+        "transports": [
+          "stdio"
+        ],
+        "tool_count": 22,
+        "public_tool_count": 0,
+        "auth_type": "cookie",
+        "env_vars": [],
+        "mcp_ready": "partial",
+        "spec_format": "internal"
+      }
+    },
+    {
       "name": "openfda",
       "category": "developer-tools",
       "api": "OpenFDA",
@@ -7073,6 +7486,12 @@
         "handle": "mvanhorn",
         "name": "Matt Van Horn"
       },
+      "contributors": [
+        {
+          "handle": "tmchow",
+          "name": "Trevin Chow"
+        }
+      ],
       "mcp": {
         "binary": "ordertogo-pp-mcp",
         "transports": [
@@ -7452,6 +7871,12 @@
         "handle": "mvanhorn",
         "name": "Matt Van Horn"
       },
+      "contributors": [
+        {
+          "handle": "tmchow",
+          "name": "Trevin Chow"
+        }
+      ],
       "mcp": {
         "binary": "podcast-goat-pp-mcp",
         "transports": [
@@ -7565,6 +7990,12 @@
         "handle": "salmonumbrella",
         "name": "salmonumbrella"
       },
+      "contributors": [
+        {
+          "handle": "tmchow",
+          "name": "Trevin Chow"
+        }
+      ],
       "mcp": {
         "binary": "pointhound-pp-mcp",
         "transports": [
@@ -8045,6 +8476,33 @@
       }
     },
     {
+      "name": "qbo",
+      "category": "accounting",
+      "api": "qbo",
+      "description": "Fixture-first, read-only QuickBooks Online CLI for agents.",
+      "search_terms": [
+        "qbo",
+        "qbo-pp-cli",
+        "Fixture-first, read-only QuickBooks Online CLI for agents.",
+        "Fixture-only read surface",
+        "qbo-pp-cli status",
+        "Reports read-only, no-live-OAuth safety status for agent use.",
+        "Local JSON fixture reads",
+        "qbo-pp-cli accounts list --fixture testdata/fixtures/qbo/accounts.json",
+        "Reads deterministic local accounting fixtures without credentials or network access.",
+        "Report fixture reads",
+        "qbo-pp-cli reports trial-balance --fixture testdata/fixtures/qbo/trial_balance.json",
+        "Exposes accounting report fixtures as JSON envelopes for agent workflows."
+      ],
+      "path": "library/accounting/qbo",
+      "printer": "jeffreydebolt",
+      "printer_name": "Jeff DeBolt",
+      "creator": {
+        "handle": "jeffreydebolt",
+        "name": "Jeff DeBolt"
+      }
+    },
+    {
       "name": "rappi",
       "category": "food-and-dining",
       "api": "Rappi",
@@ -8455,6 +8913,53 @@
       }
     },
     {
+      "name": "roadside-america",
+      "category": "travel",
+      "api": "Roadside America",
+      "description": "Every offbeat roadside attraction on RoadsideAmerica.",
+      "search_terms": [
+        "roadside-america",
+        "Roadside America",
+        "roadside-america-pp-cli",
+        "Every offbeat roadside attraction on RoadsideAmerica.com — with a local SQLite cache, offline search, and superlative categories no other tool offers.",
+        "Superlative & keyword categories",
+        "category",
+        "Find the biggest, smallest, tallest, or weird-food attractions (and more) by classifying cached attractions locally.",
+        "Quirk leaderboard / rollups",
+        "stats",
+        "Summarize the local cache: counts by state and by category, plus totals.",
+        "Surprise-me",
+        "random",
+        "Pick a random offbeat attraction, optionally constrained by state or category.",
+        "Road-trip stops",
+        "trip",
+        "Collect quirky stops near a list of cities or coordinates in one call, deduped and labeled by stop.",
+        "State quirk comparison",
+        "compare",
+        "Compare two states by offbeat-attraction count and surface a few top picks from each."
+      ],
+      "path": "library/travel/roadside-america",
+      "printer": "dbryson",
+      "printer_name": "David Bryson",
+      "creator": {
+        "handle": "dbryson",
+        "name": "David Bryson"
+      },
+      "mcp": {
+        "binary": "roadside-america-pp-mcp",
+        "transports": [
+          "stdio",
+          "http"
+        ],
+        "tool_count": 3,
+        "public_tool_count": 3,
+        "auth_type": "none",
+        "env_vars": [],
+        "mcp_ready": "full",
+        "spec_format": "internal"
+      }
+    },
+    {
       "name": "roam",
       "category": "productivity",
       "api": "Roam HQ",
@@ -8833,6 +9338,73 @@
         ],
         "mcp_ready": "full",
         "spec_format": "internal"
+      }
+    },
+    {
+      "name": "sendfox",
+      "category": "marketing",
+      "api": "SendFox",
+      "description": "SendFox email marketing API for authenticated user details, contact lists, contacts, unsubscribe operations",
+      "search_terms": [
+        "sendfox",
+        "sendfox-pp-cli",
+        "Operate SendFox contacts, lists, campaigns, audience hygiene, CSV reconciliation, launch checklists, signup-form handoffs, and webhook setup packets from the terminal.",
+        "Capabilities Matrix",
+        "capabilities",
+        "Machine-readable support matrix that tells agents which SendFox resources can be listed, created, or only handled in the dashboard.",
+        "Account Snapshot",
+        "workflow account-snapshot",
+        "One read-only operating snapshot across /me, lists, contacts, and campaigns.",
+        "Audience Map",
+        "workflow audience-map",
+        "Map contacts to lists and surface contacts without list memberships for segmentation cleanup.",
+        "Hygiene Report",
+        "workflow hygiene-report",
+        "Find duplicate emails, invalid emails, status mix, and list-membership gaps from live contacts.",
+        "Launch Plan",
+        "workflow launch-plan",
+        "Generate a safe SendFox list-launch checklist and exact next CLI/dashboard steps without faking campaign write endpoints.",
+        "Campaign Digest",
+        "workflow campaign-digest",
+        "Summarize campaign count, status mix, and recent campaigns.",
+        "Contacts Audit CSV",
+        "contacts audit-csv",
+        "Validate subscriber CSVs for invalid and duplicate emails before any mutation.",
+        "Contacts Reconcile CSV",
+        "contacts reconcile-csv",
+        "Compare a CSV against live contacts and emit create/skip actions before bulk import.",
+        "Contacts Onboard",
+        "Create a contact and attach list memberships in one automation-aware command with dry-run call preview.",
+        "Contacts Import CSV",
+        "contacts import-csv",
+        "Bulk-create contacts from CSV after a required dry-run/--yes safety gate.",
+        "Forms Generate",
+        "Generate a self-contained signup form handoff with server-side SendFox proxy guidance.",
+        "Webhooks Handoff",
+        "Generate dashboard setup and handler-contract packets for SendFox webhook receivers."
+      ],
+      "path": "library/marketing/sendfox",
+      "printer": "cathrynlavery",
+      "printer_name": "Cathryn Lavery",
+      "creator": {
+        "handle": "cathrynlavery",
+        "name": "Cathryn Lavery"
+      },
+      "mcp": {
+        "binary": "sendfox-pp-mcp",
+        "transports": [
+          "stdio",
+          "http"
+        ],
+        "tool_count": 11,
+        "public_tool_count": 0,
+        "auth_type": "bearer_token",
+        "env_vars": [
+          "SENDFOX_API_TOKEN",
+          "SENDFOX_BEARER_AUTH"
+        ],
+        "mcp_ready": "full",
+        "spec_format": "openapi3"
       }
     },
     {
@@ -9224,6 +9796,12 @@
         "handle": "quoxientzero",
         "name": "Zain Haseeb"
       },
+      "contributors": [
+        {
+          "handle": "tmchow",
+          "name": "Trevin Chow"
+        }
+      ],
       "mcp": {
         "binary": "skool-pp-mcp",
         "transports": [
@@ -10709,6 +11287,57 @@
       }
     },
     {
+      "name": "tripadvisor",
+      "category": "travel",
+      "api": "Tripadvisor",
+      "description": "Every Tripadvisor Content API endpoint",
+      "search_terms": [
+        "tripadvisor",
+        "tripadvisor-pp-cli",
+        "Every Tripadvisor Content API endpoint, plus a local store and ranked compare/best/drift commands no other Tripadvisor tool has.",
+        "Ranked best-of search",
+        "best",
+        "Search a place type, auto-fetch details for the top hits, and return them ranked by rating, review count, or Tripadvisor ranking in one table.",
+        "Side-by-side compare",
+        "compare",
+        "Pull details (and subratings + trip-type mix) for 2-5 location IDs and emit one structured comparison table.",
+        "Geo-ranked shortlist",
+        "nearby-best",
+        "From a lat/long, find nearby places, batch-fetch details up to a scan cap, filter by category and minimum rating, return the top K.",
+        "Rating drift",
+        "drift",
+        "Compare a location's stored rating/review-count snapshot against a fresh fetch and report the delta, flagging drops past a threshold.",
+        "Location digest",
+        "digest",
+        "One location ID to a single agent-friendly payload combining details, top reviews (user-generated), and photo URLs.",
+        "Traveler fit ranking",
+        "fit",
+        "Rank search results by how well their trip-type mix matches a declared traveler profile (families, couples, solo, business)."
+      ],
+      "path": "library/travel/tripadvisor",
+      "printer": "dbryson",
+      "printer_name": "David Bryson",
+      "creator": {
+        "handle": "dbryson",
+        "name": "David Bryson"
+      },
+      "mcp": {
+        "binary": "tripadvisor-pp-mcp",
+        "transports": [
+          "stdio",
+          "http"
+        ],
+        "tool_count": 5,
+        "public_tool_count": 0,
+        "auth_type": "api_key",
+        "env_vars": [
+          "TRIPADVISOR_API_KEY"
+        ],
+        "mcp_ready": "full",
+        "spec_format": "internal"
+      }
+    },
+    {
       "name": "trustpilot",
       "category": "marketing",
       "api": "Trustpilot",
@@ -10974,6 +11603,64 @@
         "public_tool_count": 4,
         "auth_type": "none",
         "env_vars": [],
+        "mcp_ready": "full",
+        "spec_format": "internal"
+      }
+    },
+    {
+      "name": "uk-train-goat",
+      "category": "travel",
+      "api": "UK Train Goat",
+      "description": "The only Go-native, agent-native, MCP-exposed UK rail CLI; live boards, journey planning",
+      "search_terms": [
+        "uk-train-goat",
+        "UK Train Goat",
+        "uk-train-goat-pp-cli",
+        "The only Go-native, agent-native, MCP-exposed UK rail CLI; live boards, journey planning, and a local SQLite store that remembers your commute.",
+        "Saved-commute one-shot",
+        "go",
+        "Run a saved commute in one keystroke; resolves origin, destination, and time-window from the local store.",
+        "Offline station search",
+        "stations",
+        "FTS5 search over the local UK CRS code table; resolves Paddington -> PAD with no network call.",
+        "Saved-routes morning status",
+        "saved status",
+        "Fans out across every saved route and prints a single ranked status table for all your commutes.",
+        "Service delay-reason briefing",
+        "why",
+        "Combines GetServiceDetails delay/cancel reasons with adjacent operator alerts into one screen explaining what is going wrong with one service.",
+        "Disruption-aware journey ranking",
+        "journey",
+        "Ranks A->B options by combined scheduled-time, current delay, and platform-known signal so on-time-but-later beats earlier-but-late.",
+        "Recent-journey replay",
+        "recent",
+        "Re-runs your recent A->B searches with fresh live data, side-by-side, so iterative trip planning is one keystroke per refresh.",
+        "Multi-origin board fan-out",
+        "board",
+        "Accept a comma-separated list of CRS codes and merge departures across all of them into one ranked time-ordered list.",
+        "Eval-grader 9th quality gate",
+        "eval",
+        "Programmatic eval grader that scores an LLM agent against a fixture suite of natural-language UK-rail prompts; 80% pass-rate threshold blocks ship."
+      ],
+      "path": "library/travel/uk-train-goat",
+      "printer": "ahujasachin92",
+      "printer_name": "Sachin Ahuja",
+      "creator": {
+        "handle": "ahujasachin92",
+        "name": "Sachin Ahuja"
+      },
+      "mcp": {
+        "binary": "uk-train-goat-pp-mcp",
+        "transports": [
+          "stdio",
+          "http"
+        ],
+        "tool_count": 1,
+        "public_tool_count": 0,
+        "auth_type": "api_key",
+        "env_vars": [
+          "LDBWS_API_TOKEN"
+        ],
         "mcp_ready": "full",
         "spec_format": "internal"
       }
@@ -11521,6 +12208,32 @@
         "X (Twitter)",
         "x-twitter-pp-cli",
         "The only X CLI with an offline, searchable local mirror — full-text search and analytics over your archived posts without re-spending per-read API credits — plus a full-surface MCP server and honest tier/reachability diagnostics.",
+        "Post URL resolver",
+        "post resolve",
+        "Normalize any X post URL or raw post ID into a canonical structured post record with provenance, author context, metrics, local-state reuse, and suggested next workflow commands.",
+        "Conversation context resolver",
+        "thread context",
+        "Resolve a post URL or ID, include parent and quote context when available, and optionally pull bounded replies from local store or recent search.",
+        "Durable post collections",
+        "collection save/list/export",
+        "Save resolved X posts into local named collections, list saved source material, and export it as markdown, JSON, JSONL, or CSV.",
+        "Watermarked X monitors",
+        "monitor create/run/list",
+        "Create named query, URL, or account monitors, run them with local watermarks and dedupe, and reuse saved results for later briefing.",
+        "Source-backed X briefs",
+        "brief",
+        "Package monitor results, collections, or explicit posts into deterministic JSON or markdown briefs with source links and metrics.",
+        "Account snapshots",
+        "account snapshot",
+        "Capture profile basics, public metrics, pinned post, and recent posts for an account by username or user ID.",
+        "URL mention tracking",
+        "url mentions",
+        "Find recent posts mentioning a URL, domain, repo, article, or product page and optionally save them into a collection or monitor.",
+        "Post performance tracking",
+        "performance snapshot/backfill/analyze",
+        "Store timestamped post metrics locally, backfill recent account posts when auth allows, and analyze saved snapshots by useful dimensions.",
+        "Timeline export",
+        "Export an account or query timeline as markdown, JSON, or JSONL for research, notes, archives, or downstream analysis.",
         "Offline thread reconstruction",
         "thread show",
         "Rebuild a full conversation thread from your locally synced posts — ordered and depth-tagged — without re-spending API read credits.",
@@ -11545,6 +12258,10 @@
         {
           "handle": "tmchow",
           "name": "Trevin Chow"
+        },
+        {
+          "handle": "mvanhorn",
+          "name": "Matt Van Horn"
         }
       ],
       "mcp": {
@@ -11561,6 +12278,83 @@
         ],
         "mcp_ready": "full",
         "spec_format": "openapi3"
+      }
+    },
+    {
+      "name": "xai",
+      "category": "ai",
+      "api": "xAI",
+      "description": "REST API for xAI compatible with other providers.",
+      "search_terms": [
+        "xai",
+        "xai-pp-cli",
+        "REST API for xAI compatible with other providers.",
+        "Model picker",
+        "model-picker",
+        "Rank live xAI models for a task using the authenticated model catalog.",
+        "Cost preview",
+        "cost-preview",
+        "Estimate xAI token cost from live model pricing metadata before sending a request.",
+        "Model capability matrix",
+        "model-capabilities",
+        "Build a live capability matrix across chat, reasoning, vision, embedding, image, and video models.",
+        "Smoke chat",
+        "smoke-chat",
+        "Verify that the authenticated key can run a tiny xAI chat completion.",
+        "Credential capability audit",
+        "api-key",
+        "Inspect the authenticated xAI API key status and permissions without exposing the secret value.",
+        "Agent raw endpoint browser",
+        "api",
+        "Browse the complete generated xAI endpoint surface by interface for agent planning and fallback calls."
+      ],
+      "path": "library/ai/xai",
+      "printer": "cathrynlavery",
+      "printer_name": "Cathryn Lavery",
+      "creator": {
+        "handle": "cathrynlavery",
+        "name": "Cathryn Lavery"
+      },
+      "mcp": {
+        "binary": "xai-pp-mcp",
+        "transports": [
+          "stdio"
+        ],
+        "tool_count": 41,
+        "public_tool_count": 0,
+        "auth_type": "bearer_token",
+        "env_vars": [
+          "XAI_API_KEY"
+        ],
+        "mcp_ready": "full",
+        "spec_format": "openapi3"
+      }
+    },
+    {
+      "name": "xero",
+      "category": "accounting",
+      "api": "xero",
+      "description": "Fixture-first, read-only Xero CLI for agents.",
+      "search_terms": [
+        "xero",
+        "xero-pp-cli",
+        "Fixture-first, read-only Xero CLI for agents.",
+        "Fixture-only read surface",
+        "xero-pp-cli status",
+        "Reports read-only, no-live-OAuth safety status for agent use.",
+        "Local JSON fixture reads",
+        "xero-pp-cli accounts list --fixture testdata/fixtures/xero/accounts.json",
+        "Reads deterministic local accounting fixtures without credentials or network access.",
+        "Report fixture reads",
+        "xero-pp-cli reports trial-balance --fixture testdata/fixtures/xero/trial_balance.json",
+        "Exposes accounting report fixtures as JSON envelopes for agent workflows."
+      ],
+      "path": "library/accounting/xero",
+      "printer": "jeffreydebolt",
+      "printer_name": "Jeff DeBolt",
+      "creator": {
+        "handle": "jeffreydebolt",
+        "name": "Jeff DeBolt"
       }
     },
     {

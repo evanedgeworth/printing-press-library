@@ -24,6 +24,7 @@ type cookieAuth struct {
 	AuthToken  string `json:"auth_token"`
 	CT0        string `json:"ct0"`
 	WebBearer  string `json:"web_bearer"`
+	UserID     string `json:"user_id"`
 	CapturedAt string `json:"captured_at"`
 }
 
@@ -48,6 +49,13 @@ func LoadCookieAuth() (*cookieAuth, error) {
 		return nil, fmt.Errorf("cookies file %s is missing one of auth_token, ct0, web_bearer", path)
 	}
 	return &c, nil
+}
+
+func (c *cookieAuth) ArticleUserID() string {
+	if c == nil {
+		return ""
+	}
+	return c.UserID
 }
 
 // applyCookieAuth attaches Source B auth headers to req. Used for hosts
@@ -92,6 +100,13 @@ func isAllowedAbsoluteHost(host string) bool {
 		return true
 	}
 	return false
+}
+
+// IsAllowedAbsoluteHost reports whether an absolute raw/API URL host is on the
+// X/Twitter allowlist. CLI-side validators use this to fail before building a
+// request.
+func IsAllowedAbsoluteHost(host string) bool {
+	return isAllowedAbsoluteHost(host)
 }
 
 // hostFromURL extracts the hostname from a possibly-absolute URL. Empty if not parseable
