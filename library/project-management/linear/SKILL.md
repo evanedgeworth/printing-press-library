@@ -138,6 +138,13 @@ These capabilities aren't available in any other tool for this API.
   ```
 
 ### Agent-native plumbing
+- **`todos sync`** — Mirror agent TodoWrite hook payloads to `[agent-todo]` Linear subtasks under the session parent issue.
+
+  _Reach for this from Cursor/Claude PostToolUse hooks so plan todos become Linear subtasks immediately without hand-rolled GraphQL._
+
+  ```bash
+  linear-pp-cli todos sync --agent
+  ```
 - **`pp-test list`** — List Linear issues this CLI created in the current or named session, then archive them with pp-cleanup.
 
   _Reach for this when an agent needs to clean up only the tickets it created in a session — the workspace's existing data must not be touched._

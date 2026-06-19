@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/mvanhorn/printing-press-library/library/project-management/linear/internal/client"
 	"github.com/mvanhorn/printing-press-library/library/project-management/linear/internal/store"
 
 	"github.com/spf13/cobra"
@@ -15,7 +16,7 @@ import (
 // in init(). Calls Linear's issueCreate mutation and records the resulting issue
 // into the local pp_created ledger so pp-cleanup can find it later.
 func newIssuesCreateCmd(flags *rootFlags) *cobra.Command {
-	var titleFlag, teamFlag, descFlag, assigneeFlag, projectFlag, stateFlag string
+	var titleFlag, teamFlag, parentFlag, descFlag, assigneeFlag, projectFlag, stateFlag string
 	var descFile string
 	var descStdin bool
 	var priorityFlag int
@@ -43,8 +44,8 @@ tickets in the workspace.`,
 			if titleFlag == "" {
 				return fmt.Errorf("--title is required")
 			}
-			if teamFlag == "" {
-				return fmt.Errorf("--team is required (team key like ENG or team UUID)")
+			if teamFlag == "" && parentFlag == "" {
+				return fmt.Errorf("--team is required (team key like ENG or team UUID), unless --parent resolves the team")
 			}
 			// trust-mode strict requires the create call to include a session
 			// or the explicit --pp-test marker so the resulting fixture is
@@ -122,6 +123,17 @@ tickets in the workspace.`,
 			c, err := flags.newClient()
 			if err != nil {
 				return err
+			}
+			if parentFlag != "" {
+				parentID, parentTeam, resolveErr := resolveParentForCreate(c, parentFlag)
+				if resolveErr != nil {
+					return classifyLiveReadError(resolveErr, flags)
+				}
+				input["parentId"] = parentID
+				if teamFlag == "" {
+					teamID = parentTeam.ID
+					teamInfo = parentTeam
+				}
 			}
 			if len(labelsFlag) > 0 {
 				if err := validateIssueLabelTeams(c, labelsFlag, teamInfo); err != nil {
@@ -273,7 +285,8 @@ tickets in the workspace.`,
 		},
 	}
 	cmd.Flags().StringVar(&titleFlag, "title", "", "Issue title (required)")
-	cmd.Flags().StringVar(&teamFlag, "team", "", "Team key (e.g. ENG) or team UUID (required)")
+	cmd.Flags().StringVar(&teamFlag, "team", "", "Team key (e.g. ENG) or team UUID (required unless --parent resolves team)")
+	cmd.Flags().StringVar(&parentFlag, "parent", "", "Parent issue identifier or UUID (creates a subtask; team defaults from parent)")
 	cmd.Flags().StringVar(&descFlag, "description", "", "Issue description (markdown)")
 	cmd.Flags().StringVar(&descFile, "description-file", "", "Read issue description markdown from file")
 	cmd.Flags().BoolVar(&descStdin, "description-stdin", false, "Read issue description markdown from stdin")
@@ -316,4 +329,25 @@ func resolveTeam(db *store.Store, keyOrID string) (issueTeamInfo, bool) {
 		}
 	}
 	return issueTeamInfo{}, false
+}
+
+func resolveParentForCreate(c *client.Client, parent string) (string, issueTeamInfo, error) {
+	raw, err := fetchIssueLive(c, parent)
+	if err != nil {
+		return "", issueTeamInfo{}, err
+	}
+	var issue struct {
+		ID   string `json:"id"`
+		Team struct {
+			ID  string `json:"id"`
+			Key string `json:"key"`
+		} `json:"team"`
+	}
+	if err := json.Unmarshal(raw, &issue); err != nil {
+		return "", issueTeamInfo{}, fmt.Errorf("parsing parent issue: %w", err)
+	}
+	if issue.ID == "" || issue.Team.ID == "" {
+		return "", issueTeamInfo{}, fmt.Errorf("parent %q missing team", parent)
+	}
+	return issue.ID, issueTeamInfo{ID: issue.Team.ID, Key: issue.Team.Key}, nil
 }

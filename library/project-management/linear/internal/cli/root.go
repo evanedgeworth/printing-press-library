@@ -328,6 +328,7 @@ See README.md or the bundled SKILL.md for recipes.`,
 	rootCmd.AddCommand(newSlippedCmd(flags))
 	rootCmd.AddCommand(newPPTestCmd(flags))
 	rootCmd.AddCommand(newPPCleanupCmd(flags))
+	rootCmd.AddCommand(newTodosCmd(flags))
 	rootCmd.AddCommand(newSQLCmd(flags))
 	rootCmd.AddCommand(newExportCmd(flags))
 

@@ -1,0 +1,18 @@
+{
+  "schema_version": 2,
+  "id": "overlord-agent-todo-sync",
+  "applied_at": "2026-06-18",
+  "base_run_id": "20260518-232543",
+  "base_printing_press_version": "4.9.0",
+  "summary": "Agent TodoWrite → Linear subtask sync via `todos sync` hook command and `issues create --parent` for subtasks.",
+  "reason": "BuildCore agent hooks need a pp-cli-first path for mirroring plan todos to Linear under the session parent issue, without shelling out to linear-agent or hand-rolled GraphQL.",
+  "files": [
+    "internal/cli/todos.go",
+    "internal/cli/root.go",
+    "internal/cli/issues_create.go",
+    "internal/cli/which.go",
+    "internal/cli/linear_agent_test.go",
+    "SKILL.md"
+  ],
+  "validated_outcome": "go test ./internal/cli/... covers todos sync dry-run, empty stdin hook-safe exit, and live subtask creation with parentId."
+}

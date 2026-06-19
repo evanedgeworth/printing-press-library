@@ -1047,3 +1047,69 @@ func executeRootForTestWithInputAndRenderedError(input string, args ...string) (
 	}
 	return out.String() + string(rendered), cmdErr
 }
+
+func TestTodosSyncEmptyStdinExitsZero(t *testing.T) {
+	out, err := executeRootForTest("todos", "sync", "--agent")
+	if err != nil {
+		t.Fatalf("todos sync empty stdin failed: %v\n%s", err, out)
+	}
+	if !strings.Contains(out, "todos_sync_skipped") {
+		t.Fatalf("expected skip event, got: %s", out)
+	}
+}
+
+func TestTodosSyncDryRunWithParent(t *testing.T) {
+	payload := `{"tool_name":"TodoWrite","session_id":"test-session","tool_input":{"todos":[{"id":"todo-1","content":"Ship feature","status":"pending"}]}}`
+	out, err := executeRootForTestWithInput(payload, "todos", "sync", "--parent", "MOB-99", "--dry-run", "--agent")
+	if err != nil {
+		t.Fatalf("todos sync dry-run failed: %v\n%s", err, out)
+	}
+	if !strings.Contains(out, "would_sync_todos") || !strings.Contains(out, "MOB-99") {
+		t.Fatalf("unexpected dry-run output: %s", out)
+	}
+}
+
+func TestTodosSyncCreatesSubtask(t *testing.T) {
+	var sawCreate bool
+	var seenParentID string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req client.GraphQLRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			t.Errorf("decode request: %v", err)
+			http.Error(w, "bad request", http.StatusBadRequest)
+			return
+		}
+		switch {
+		case strings.Contains(req.Query, "issues(filter"):
+			fmt.Fprint(w, `{"data":{"issues":{"nodes":[{"id":"parent-uuid","identifier":"MOB-99","title":"Parent","team":{"id":"team-mob","key":"MOB"}}]}}}`)
+		case strings.Contains(req.Query, "issue(id:"):
+			fmt.Fprint(w, `{"data":{"issue":{"id":"parent-uuid","identifier":"MOB-99","title":"Parent","team":{"id":"team-mob","key":"MOB"}}}}`)
+		case strings.Contains(req.Query, "issueCreate"):
+			sawCreate = true
+			input, _ := req.Variables["input"].(map[string]any)
+			seenParentID, _ = input["parentId"].(string)
+			fmt.Fprint(w, `{"data":{"issueCreate":{"success":true,"issue":{"id":"child-uuid","identifier":"MOB-100","title":"[agent-todo] Ship feature","url":"https://linear.app/issue/MOB-100"}}}}`)
+		default:
+			t.Errorf("unexpected query: %s", req.Query)
+			http.Error(w, "unexpected query", http.StatusBadRequest)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	t.Setenv("LINEAR_BASE_URL", srv.URL)
+	t.Setenv("LINEAR_API_KEY", "test-token")
+
+	payload := `{"tool_name":"TodoWrite","session_id":"test-session","tool_input":{"todos":[{"id":"todo-1","content":"Ship feature","status":"pending"}]}}`
+	out, err := executeRootForTestWithInput(payload, "todos", "sync", "--parent", "MOB-99", "--agent", "--data-source", "live", "--map-file", filepath.Join(t.TempDir(), "map.json"))
+	if err != nil {
+		t.Fatalf("todos sync failed: %v\n%s", err, out)
+	}
+	if !sawCreate {
+		t.Fatal("issueCreate was not called")
+	}
+	if seenParentID != "parent-uuid" {
+		t.Fatalf("parentId = %q, want parent-uuid", seenParentID)
+	}
+	if !strings.Contains(out, "MOB-100") {
+		t.Fatalf("expected created identifier in output: %s", out)
+	}
+}
