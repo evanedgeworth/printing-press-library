@@ -1,0 +1,8 @@
+{
+  "plugins": {
+    "vercel": { "enabled": false },
+    "sentry": { "enabled": false },
+    "supabase": { "enabled": false },
+    "figma": { "enabled": false }
+  }
+}
