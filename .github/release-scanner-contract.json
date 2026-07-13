@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "required_check_runs": [
+    "Govulncheck",
+    "Verify release scanner contract",
+    "Validate SKILL.md against shipped CLI source",
+    "Verify",
+    "Validate MCPB manifest contract"
+  ],
+  "required_commit_statuses": [
+    "CodeRabbit"
+  ],
+  "comment_scanners": [
+    {
+      "name": "CodeRabbit",
+      "authors": [
+        "coderabbitai",
+        "coderabbitai[bot]"
+      ],
+      "success_patterns": [
+        "walkthrough"
+      ],
+      "failure_patterns": [
+        "rate limited",
+        "review limit reached",
+        "couldn't start this review",
+        "review failed",
+        "all tool run failures"
+      ]
+    }
+  ]
+}

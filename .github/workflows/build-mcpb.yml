@@ -23,6 +23,14 @@ on:
       cli:
         description: 'CLI to rebuild as <category>/<slug>'
         required: true
+      artifact_scope:
+        description: 'Artifact set to publish'
+        required: true
+        default: full
+        type: choice
+        options:
+          - full
+          - cli-only
   push:
     branches: [main]
     paths:
@@ -48,6 +56,10 @@ on:
 
 permissions:
   contents: write  # for creating/updating releases
+  checks: read
+  issues: read
+  pull-requests: read
+  statuses: read
 
 jobs:
   detect:
@@ -56,6 +68,7 @@ jobs:
     outputs:
       affected: ${{ steps.detect.outputs.affected }}
       count: ${{ steps.detect.outputs.count }}
+      artifact_scope: ${{ steps.detect.outputs.artifact_scope }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -127,12 +140,84 @@ jobs:
           count=$(printf '%s' "$affected" | jq 'length')
           echo "affected=$affected" >> "$GITHUB_OUTPUT"
           echo "count=$count" >> "$GITHUB_OUTPUT"
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "artifact_scope=${{ inputs.artifact_scope }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "artifact_scope=full" >> "$GITHUB_OUTPUT"
+          fi
           echo "Affected CLIs ($count): $affected"
+
+  verify-scanners:
+    name: Verify release scanners for ${{ matrix.target }}
+    needs: detect
+    if: needs.detect.outputs.count != '0'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target: ${{ fromJson(needs.detect.outputs.affected) }}
+    steps:
+      - uses: actions/checkout@v6
+      - id: source
+        name: Resolve exact source PR and scanner snapshot
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CLI_TARGET: ${{ matrix.target }}
+        run: |
+          set -euo pipefail
+          release_file="library/${CLI_TARGET}/.printing-press-release.json"
+          source_commit=$(jq -er '.source_commit' "$release_file")
+          pr_number=$(jq -er '.changes[-1].pr' "$release_file")
+          pr_json=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${pr_number}")
+          merge_commit=$(jq -r '.merge_commit_sha // ""' <<<"$pr_json")
+          head_sha=$(jq -r '.head.sha // ""' <<<"$pr_json")
+          if [ "$merge_commit" != "$source_commit" ]; then
+            echo "::error::Release ledger source ${source_commit} does not equal PR #${pr_number} merge commit ${merge_commit:-<absent>}"
+            exit 1
+          fi
+          if [ -z "$head_sha" ]; then
+            echo "::error::PR #${pr_number} has no head SHA"
+            exit 1
+          fi
+          check_runs=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${head_sha}/check-runs?per_page=100")
+          statuses=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${head_sha}/statuses?per_page=100")
+          comments=$(gh api --paginate "repos/${GITHUB_REPOSITORY}/issues/${pr_number}/comments?per_page=100" --slurp)
+          jq -n \
+            --arg repository "$GITHUB_REPOSITORY" \
+            --argjson pull_request "$pr_number" \
+            --arg source_commit "$source_commit" \
+            --arg head_sha "$head_sha" \
+            --argjson check_runs "$(jq '.check_runs' <<<"$check_runs")" \
+            --argjson statuses "$statuses" \
+            --argjson comments "$(jq 'add' <<<"$comments")" \
+            '{repository:$repository,pull_request:$pull_request,source_commit:$source_commit,head_sha:$head_sha,check_runs:$check_runs,statuses:$statuses,comments:$comments}' \
+            > "${RUNNER_TEMP}/scanner-snapshot.json"
+          {
+            echo "head_sha=$head_sha"
+            echo "pr_number=$pr_number"
+            echo "slug=$(basename "${CLI_TARGET}")"
+          } >> "$GITHUB_OUTPUT"
+      - name: Enforce fail-closed scanner contract
+        env:
+          HEAD_SHA: ${{ steps.source.outputs.head_sha }}
+        run: |
+          python3 .github/scripts/verify-release-scanners/verify_release_scanners.py \
+            --config .github/release-scanner-contract.json \
+            --snapshot "${RUNNER_TEMP}/scanner-snapshot.json" \
+            --expected-head "$HEAD_SHA" \
+            --output "${RUNNER_TEMP}/release-scanner-receipt.json"
+      - name: Upload scanner receipt
+        uses: actions/upload-artifact@v6
+        with:
+          name: scanner-receipt-${{ steps.source.outputs.slug }}
+          path: ${{ runner.temp }}/release-scanner-receipt.json
+          if-no-files-found: error
+          retention-days: 90
 
   bundle:
     name: Bundle ${{ matrix.target }} (${{ matrix.platform }})
-    needs: detect
-    if: needs.detect.outputs.count != '0'
+    needs: [detect, verify-scanners]
+    if: needs.detect.outputs.count != '0' && needs.verify-scanners.result == 'success' && needs.detect.outputs.artifact_scope == 'full'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -211,8 +296,8 @@ jobs:
 
   build-cli:
     name: Build CLI ${{ matrix.target }} (${{ matrix.platform }})
-    needs: detect
-    if: needs.detect.outputs.count != '0'
+    needs: [detect, verify-scanners]
+    if: needs.detect.outputs.count != '0' && needs.verify-scanners.result == 'success'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -281,13 +366,13 @@ jobs:
 
   release:
     name: Release ${{ matrix.target }}
-    needs: [detect, bundle, build-cli]
+    needs: [detect, verify-scanners, bundle, build-cli]
     # !cancelled() so a single CLI's bundle/build failure doesn't cascade-skip
     # release for every other successful CLI in the same matrix run. Each
     # release matrix entry is per-app (keyed on matrix.target) and downloads
     # only its own slug's artifacts, so apps don't share fate. Per-app
     # success is then enforced by the strict gate inside the release script.
-    if: ${{ !cancelled() && needs.detect.outputs.count != '0' }}
+    if: ${{ always() && needs.detect.outputs.count != '0' }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -301,6 +386,30 @@ jobs:
       cancel-in-progress: true
     steps:
       - uses: actions/checkout@v6
+      - name: Enforce dependency conclusions
+        env:
+          SCANNER_RESULT: ${{ needs.verify-scanners.result }}
+          BUNDLE_RESULT: ${{ needs.bundle.result }}
+          CLI_RESULT: ${{ needs.build-cli.result }}
+          ARTIFACT_SCOPE: ${{ needs.detect.outputs.artifact_scope }}
+        run: |
+          set -euo pipefail
+          if [ "$SCANNER_RESULT" != "success" ]; then
+            echo "::error::Release scanner result is ${SCANNER_RESULT}; success is required."
+            exit 1
+          fi
+          if [ "$CLI_RESULT" != "success" ]; then
+            echo "::error::CLI build result is ${CLI_RESULT}; success is required."
+            exit 1
+          fi
+          if [ "$ARTIFACT_SCOPE" = "full" ] && [ "$BUNDLE_RESULT" != "success" ]; then
+            echo "::error::Full release requires successful MCPB bundles; result is ${BUNDLE_RESULT}."
+            exit 1
+          fi
+          if [ "$ARTIFACT_SCOPE" = "cli-only" ] && [ "$BUNDLE_RESULT" != "skipped" ]; then
+            echo "::error::CLI-only release expected the bundle job to be skipped; result is ${BUNDLE_RESULT}."
+            exit 1
+          fi
       - name: Compute slug
         id: slug
         env:
@@ -309,6 +418,7 @@ jobs:
           slug=$(basename "${CLI_TARGET}")
           echo "slug=${slug}" >> "$GITHUB_OUTPUT"
       - name: Download MCPB artifacts for this CLI
+        if: needs.detect.outputs.artifact_scope == 'full'
         uses: actions/download-artifact@v7
         with:
           path: ${{ runner.temp }}/dl
@@ -320,70 +430,56 @@ jobs:
           path: ${{ runner.temp }}/dl
           pattern: cli-${{ steps.slug.outputs.slug }}-*
           merge-multiple: true
+      - name: Download exact-head scanner receipt
+        uses: actions/download-artifact@v7
+        with:
+          path: ${{ runner.temp }}/receipt
+          name: scanner-receipt-${{ steps.slug.outputs.slug }}
       - name: List downloaded artifacts and enforce per-app gate
         env:
           CLI_TARGET: ${{ matrix.target }}
           SLUG: ${{ steps.slug.outputs.slug }}
+          ARTIFACT_SCOPE: ${{ needs.detect.outputs.artifact_scope }}
         run: |
+          set -euo pipefail
           ls -lh "${RUNNER_TEMP}/dl" || true
           mcpb_count=$(find "${RUNNER_TEMP}/dl" -name '*.mcpb' 2>/dev/null | wc -l | tr -d ' ')
           # CLI binaries have no consistent extension — count what's left after excluding .mcpb.
           all_count=$(find "${RUNNER_TEMP}/dl" -type f 2>/dev/null | wc -l | tr -d ' ')
           cli_count=$((all_count - mcpb_count))
           echo "Found ${mcpb_count} .mcpb file(s) and ${cli_count} CLI binary file(s)."
-          # Strict per-app gate: an app's release only publishes when both
-          # its CLI binaries AND (if it ships an MCPB) its bundles produced
-          # at least one artifact. A partial release (CLI without MCPB or
-          # vice versa) confuses users by hiding the upstream build failure
-          # behind a moving "-current" tag that looks healthy. The
-          # manifest.json existence check on the MCPB side is forward-
-          # compatibility for future CLI-only entries that legitimately
-          # ship without a bundle.
-          if [ "$cli_count" = "0" ]; then
-            echo "::warning::Skipping release for ${SLUG}: no CLI binaries produced (build-cli matrix failed for this app)."
-            exit 0
+          if [ "$cli_count" -ne 6 ]; then
+            echo "::error::Release for ${SLUG} requires exactly 6 CLI binaries; found ${cli_count}."
+            exit 1
           fi
-          if [ -f "library/${CLI_TARGET}/manifest.json" ] && [ "$mcpb_count" = "0" ]; then
-            echo "::warning::Skipping release for ${SLUG}: app declares manifest.json (expects MCPB) but no .mcpb produced (bundle matrix failed for this app)."
-            exit 0
+          expected_mcpb=0
+          if [ "$ARTIFACT_SCOPE" = "full" ] && [ -f "library/${CLI_TARGET}/manifest.json" ]; then
+            expected_mcpb=3
           fi
+          if [ "$mcpb_count" -ne "$expected_mcpb" ]; then
+            echo "::error::Release for ${SLUG} requires exactly ${expected_mcpb} MCPB bundles for scope ${ARTIFACT_SCOPE}; found ${mcpb_count}."
+            exit 1
+          fi
+          cp "${RUNNER_TEMP}/receipt/release-scanner-receipt.json" "${RUNNER_TEMP}/dl/${SLUG}-release-scanner-receipt.json"
+          (cd "${RUNNER_TEMP}/dl" && sha256sum -- ./* > SHA256SUMS)
       - name: Verify release-write PAT
         env:
-          GH_TOKEN: ${{ secrets.RELEASE_WRITE_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASE_WRITE_TOKEN || github.token }}
         run: |
           set -euo pipefail
-          if [ -z "${GH_TOKEN:-}" ]; then
-            echo "::error::RELEASE_WRITE_TOKEN secret is not set. Without it, the release step cannot create or update releases. See the PR that introduced this for setup instructions."
-            exit 1
-          fi
-          # Probe the user identity. If the token is unrecognized, this 401s
-          # before the release step gets a chance to fail with a confusing
-          # "error checking for existing release". On success, prints the
-          # authenticated login so the runtime audit trail shows which
-          # account's PAT actually executed the release.
-          if ! resp=$(gh api /user --jq '.login' 2>&1); then
-            echo "::error::RELEASE_WRITE_TOKEN failed authentication. Verify the PAT exists, hasn't expired, and includes Contents:write on this repo. Raw error: ${resp}"
-            exit 1
-          fi
-          echo "Release token authenticated as: ${resp}"
-          # Verify the token has access to this specific repo. If the PAT
-          # was scoped to a different repo (e.g., the generator), this 404s.
           if ! gh api "/repos/${GITHUB_REPOSITORY}" --jq '.full_name' >/dev/null 2>&1; then
-            echo "::error::RELEASE_WRITE_TOKEN does not have access to ${GITHUB_REPOSITORY}. Re-scope the PAT to include this repo."
+            echo "::error::Release token does not have access to ${GITHUB_REPOSITORY}."
             exit 1
           fi
-          echo "PAT confirmed for repo ${GITHUB_REPOSITORY}."
+          echo "Release token confirmed for repo ${GITHUB_REPOSITORY}."
       - name: Publish release ${{ steps.slug.outputs.slug }}-current
         env:
-          # Use a fine-grained PAT (Contents:write on this repo) instead of
-          # the default GITHUB_TOKEN. The workflow's GITHUB_TOKEN reports
-          # contents:write in its permissions log but the API still 403s on
-          # release creation — likely a silent installation-token cap from
-          # the GitHub Actions integration itself, invisible from the API.
-          # The PAT bypasses that cap by acting as the user who minted it.
-          GH_TOKEN: ${{ secrets.RELEASE_WRITE_TOKEN }}
+          # Prefer the dedicated fine-grained PAT when configured. Owned
+          # forks can use the workflow token's contents:write grant.
+          GH_TOKEN: ${{ secrets.RELEASE_WRITE_TOKEN || github.token }}
           SLUG: ${{ steps.slug.outputs.slug }}
           CLI_TARGET: ${{ matrix.target }}
+          ARTIFACT_SCOPE: ${{ needs.detect.outputs.artifact_scope }}
         run: |
           set -euo pipefail
           tag="${SLUG}-current"
@@ -393,7 +489,7 @@ jobs:
             exit 0
           fi
           # shellcheck disable=SC2016
-          notes=$(printf 'Auto-built artifacts for **%s** at commit %s.\n\n**Claude Desktop:** download the matching `.mcpb` file and double-click to install.\n\n**Terminal CLI:** download the binary matching your platform. On macOS you may need to clear the Gatekeeper quarantine: `xattr -d com.apple.quarantine <binary>`. On Unix, `chmod +x <binary>`.\n\n_This is a moving tag — it always points at the latest build._' "${CLI_TARGET}" "${GITHUB_SHA}")
+          notes=$(printf 'Auto-built **%s** artifacts for **%s** at commit %s.\n\nThe attached scanner receipt is bound to the exact implementation PR head. `SHA256SUMS` covers every published artifact and the receipt.\n\n**Terminal CLI:** download the binary matching your platform. On macOS you may need to clear the Gatekeeper quarantine: `xattr -d com.apple.quarantine <binary>`. On Unix, `chmod +x <binary>`.\n\n_This is a moving tag; it always points at the latest compliant build._' "${ARTIFACT_SCOPE}" "${CLI_TARGET}" "${GITHUB_SHA}")
           if gh release view "${tag}" >/dev/null 2>&1; then
             echo "Updating existing release ${tag}"
             gh release upload "${tag}" "${RUNNER_TEMP}"/dl/* --clobber
@@ -405,4 +501,16 @@ jobs:
               --notes "${notes}" \
               --target "${GITHUB_SHA}" \
               --latest=false
+          fi
+          if gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${tag}" >/dev/null 2>&1; then
+            gh api --method PATCH "repos/${GITHUB_REPOSITORY}/git/refs/tags/${tag}" \
+              -f sha="${GITHUB_SHA}" -F force=true >/dev/null
+          else
+            gh api --method POST "repos/${GITHUB_REPOSITORY}/git/refs" \
+              -f ref="refs/tags/${tag}" -f sha="${GITHUB_SHA}" >/dev/null
+          fi
+          resolved=$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${tag}" --jq '.object.sha')
+          if [ "$resolved" != "$GITHUB_SHA" ]; then
+            echo "::error::Moving tag ${tag} resolved to ${resolved}, expected ${GITHUB_SHA}."
+            exit 1
           fi

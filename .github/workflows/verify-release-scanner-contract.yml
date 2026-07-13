@@ -1,0 +1,17 @@
+name: Verify release scanner contract
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify release scanner contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Run fail-closed contract tests
+        run: python3 .github/scripts/verify-release-scanners/verify_release_scanners_test.py
