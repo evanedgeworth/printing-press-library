@@ -2,6 +2,10 @@
 
 This file is maintained by printing-press-library release automation. Do not hand-edit release sections in normal PRs.
 
+## 2026.7.3 - 2026-07-13
+
+- Reconcile Supabase release and fail closed on scanner gaps (#4).
+
 ## 2026.7.2 - 2026-07-13
 
 - fix(supabase): harden store scopes and exact Auth Admin lookup (#2).
