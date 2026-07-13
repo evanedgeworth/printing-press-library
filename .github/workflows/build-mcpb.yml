@@ -167,6 +167,7 @@ jobs:
           set -euo pipefail
           release_file="library/${CLI_TARGET}/.printing-press-release.json"
           source_commit=$(jq -er '.source_commit' "$release_file")
+          release_version=$(jq -er '.version' "$release_file")
           pr_number=$(jq -er '.changes[-1].pr' "$release_file")
           pr_json=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${pr_number}")
           merge_commit=$(jq -r '.merge_commit_sha // ""' <<<"$pr_json")
@@ -186,11 +187,13 @@ jobs:
             --arg repository "$GITHUB_REPOSITORY" \
             --argjson pull_request "$pr_number" \
             --arg source_commit "$source_commit" \
+            --arg generated_commit "$GITHUB_SHA" \
+            --arg release_version "$release_version" \
             --arg head_sha "$head_sha" \
             --argjson check_runs "$(jq '.check_runs' <<<"$check_runs")" \
             --argjson statuses "$statuses" \
             --argjson comments "$(jq 'add' <<<"$comments")" \
-            '{repository:$repository,pull_request:$pull_request,source_commit:$source_commit,head_sha:$head_sha,check_runs:$check_runs,statuses:$statuses,comments:$comments}' \
+            '{repository:$repository,pull_request:$pull_request,source_commit:$source_commit,generated_commit:$generated_commit,release_version:$release_version,head_sha:$head_sha,check_runs:$check_runs,statuses:$statuses,comments:$comments}' \
             > "${RUNNER_TEMP}/scanner-snapshot.json"
           {
             echo "head_sha=$head_sha"
@@ -239,6 +242,15 @@ jobs:
       cancel-in-progress: true
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Check out scanner-verified implementation source
+        env:
+          CLI_TARGET: ${{ matrix.target }}
+        run: |
+          set -euo pipefail
+          source_commit=$(jq -er '.source_commit' "library/${CLI_TARGET}/.printing-press-release.json")
+          git checkout --detach "$source_commit"
       - uses: actions/setup-go@v6
         with:
           go-version-file: .go-version
@@ -318,6 +330,22 @@ jobs:
       cancel-in-progress: true
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - id: provenance
+        name: Resolve release and implementation revisions
+        env:
+          CLI_TARGET: ${{ matrix.target }}
+        run: |
+          set -euo pipefail
+          release_file="library/${CLI_TARGET}/.printing-press-release.json"
+          source_commit=$(jq -er '.source_commit' "$release_file")
+          release_version=$(jq -er '.version' "$release_file")
+          {
+            echo "source_commit=$source_commit"
+            echo "release_version=$release_version"
+          } >> "$GITHUB_OUTPUT"
+          git checkout --detach "$source_commit"
       - uses: actions/setup-go@v6
         with:
           go-version-file: .go-version
@@ -326,6 +354,7 @@ jobs:
         env:
           CLI_TARGET: ${{ matrix.target }}
           PLATFORM: ${{ matrix.platform }}
+          RELEASE_VERSION: ${{ steps.provenance.outputs.release_version }}
         run: |
           set -euo pipefail
           cli_dir="library/${CLI_TARGET}"
@@ -349,11 +378,13 @@ jobs:
           out="${RUNNER_TEMP}/out/${slug}-pp-cli-${os}-${arch}${ext}"
           mkdir -p "$(dirname "$out")"
           cd "$cli_dir"
+          module_path=$(awk '/^module / {print $2; exit}' go.mod)
+          version_symbol="${module_path}/internal/cli.version"
           # CGO_ENABLED=0 — printed CLIs use the pure-Go modernc/sqlite driver
           # so cross-compile works without C toolchains. Matches the goreleaser
           # config the CLI ships with.
           GOOS="$os" GOARCH="$arch" CGO_ENABLED=0 \
-            go build -trimpath -ldflags='-s -w' \
+            go build -trimpath -ldflags="-s -w -X ${version_symbol}=${RELEASE_VERSION}" \
             -o "$out" "./cmd/${cli_name}"
           ls -lh "$out"
       - name: Upload CLI artifact
@@ -492,6 +523,12 @@ jobs:
           notes=$(printf 'Auto-built **%s** artifacts for **%s** at commit %s.\n\nThe attached scanner receipt is bound to the exact implementation PR head. `SHA256SUMS` covers every published artifact and the receipt.\n\n**Terminal CLI:** download the binary matching your platform. On macOS you may need to clear the Gatekeeper quarantine: `xattr -d com.apple.quarantine <binary>`. On Unix, `chmod +x <binary>`.\n\n_This is a moving tag; it always points at the latest compliant build._' "${ARTIFACT_SCOPE}" "${CLI_TARGET}" "${GITHUB_SHA}")
           if gh release view "${tag}" >/dev/null 2>&1; then
             echo "Updating existing release ${tag}"
+            while IFS= read -r existing_asset; do
+              if [ ! -e "${RUNNER_TEMP}/dl/${existing_asset}" ]; then
+                echo "Deleting stale release asset ${existing_asset}"
+                gh release delete-asset "${tag}" "${existing_asset}" --yes
+              fi
+            done < <(gh release view "${tag}" --json assets --jq '.assets[].name')
             gh release upload "${tag}" "${RUNNER_TEMP}"/dl/* --clobber
             gh release edit "${tag}" --notes "${notes}" --target "${GITHUB_SHA}"
           else

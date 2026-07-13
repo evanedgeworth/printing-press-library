@@ -60,12 +60,15 @@ jobs:
           # Admin-scoped PAT so the post-commit push bypasses the
           # main-branch ruleset (default GITHUB_TOKEN cannot bypass).
           token: ${{ secrets.ADMIN_PUSH_PAT || github.token }}
+          persist-credentials: false
       - uses: actions/setup-go@v6
         with:
           go-version-file: .go-version
       - name: Run generator
         run: go run ./tools/generate-registry/main.go
       - name: Commit if changed
+        env:
+          GH_TOKEN: ${{ secrets.ADMIN_PUSH_PAT || github.token }}
         run: |
           set -euo pipefail
           if git diff --quiet -- registry.json README.md; then
@@ -86,5 +89,6 @@ jobs:
           # landing between our checkout and push. They touch disjoint paths
           # (registry.json + README.md vs cli-skills/ or library release
           # metadata), so the rebase is conflict-free in practice.
+          gh auth setup-git --hostname github.com
           git pull --rebase origin main
           git push

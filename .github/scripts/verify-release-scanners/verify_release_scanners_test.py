@@ -23,7 +23,7 @@ class ReleaseScannerContractTest(unittest.TestCase):
                     "name": "CodeRabbit",
                     "authors": ["coderabbitai[bot]"],
                     "success_patterns": ["walkthrough"],
-                    "failure_patterns": ["rate limited", "review failed", "review limit reached", "review skipped", "draft detected"],
+                    "failure_patterns": ["rate limited", "review failed", "review limit reached", "review skipped", "draft detected", "all tool run failures"],
                 }
             ],
         }
@@ -31,6 +31,8 @@ class ReleaseScannerContractTest(unittest.TestCase):
             "repository": "owner/repo",
             "pull_request": 4,
             "source_commit": "b" * 40,
+            "generated_commit": "d" * 40,
+            "release_version": "2026.7.3",
             "head_sha": self.head,
             "check_runs": [
                 {"id": 1, "name": "Verify", "head_sha": self.head, "status": "completed", "conclusion": "success"},
@@ -50,11 +52,21 @@ class ReleaseScannerContractTest(unittest.TestCase):
         return MODULE.verify(self.config, self.snapshot, self.head)
 
     def test_accepts_only_complete_success_receipt(self) -> None:
-        self.assertTrue(self.verify()["compliant"])
+        receipt = self.verify()
+        self.assertTrue(receipt["compliant"])
+        self.assertEqual(receipt["generated_commit"], "d" * 40)
+        self.assertEqual(receipt["release_version"], "2026.7.3")
 
     def test_rejects_absent_check(self) -> None:
         self.snapshot["check_runs"] = self.snapshot["check_runs"][:1]
         self.assertFalse(self.verify()["compliant"])
+
+    def test_rejects_absent_release_provenance(self) -> None:
+        for field in ("source_commit", "generated_commit", "release_version"):
+            with self.subTest(field=field):
+                original = self.snapshot.pop(field)
+                self.assertFalse(self.verify()["compliant"])
+                self.snapshot[field] = original
 
     def test_rejects_cancelled_failed_and_incomplete_checks(self) -> None:
         for status, conclusion in (
@@ -80,6 +92,10 @@ class ReleaseScannerContractTest(unittest.TestCase):
 
     def test_rejects_success_status_with_skipped_comment(self) -> None:
         self.snapshot["comments"][0]["body"] = "## Review skipped\nDraft detected."
+        self.assertFalse(self.verify()["compliant"])
+
+    def test_rejects_success_status_with_tool_failures(self) -> None:
+        self.snapshot["comments"][0]["body"] = "## Walkthrough\n<!-- all tool run failures -->"
         self.assertFalse(self.verify()["compliant"])
 
     def test_rejects_wrong_head(self) -> None:

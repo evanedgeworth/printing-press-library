@@ -113,6 +113,7 @@ func TestCredentialBearingCodeOrchEndpointPolicyDerivesFromMethodAndPath(t *test
 		{name: "auth config read remains available", ep: codeOrchEndpoint{Method: http.MethodGet, Path: "/v1/projects/{ref}/config/auth"}},
 		{name: "current auth config update denied", ep: codeOrchEndpoint{Method: http.MethodPatch, Path: "/v1/projects/{ref}/config/auth"}, want: true},
 		{name: "future auth config write denied", ep: codeOrchEndpoint{Method: http.MethodPost, Path: "/v1/projects/{ref}/config/auth"}, want: true},
+		{name: "auth config sub-path read remains available", ep: codeOrchEndpoint{Method: http.MethodGet, Path: "/v1/projects/{ref}/config/auth/sso/providers"}},
 		{name: "unrelated config write remains available", ep: codeOrchEndpoint{Method: http.MethodPatch, Path: "/v1/projects/{ref}/config/database"}},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {

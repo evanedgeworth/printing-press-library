@@ -1441,7 +1441,7 @@ func handleCodeOrchSearch(ctx context.Context, req mcplib.CallToolRequest) (*mcp
 	results := make([]scored, 0, len(codeOrchEndpoints))
 	for i := range codeOrchEndpoints {
 		ep := &codeOrchEndpoints[i]
-		if isCodeOrchEndpointDenied(ep.ID) {
+		if isCredentialBearingCodeOrchEndpoint(ep) {
 			continue
 		}
 		score := 0

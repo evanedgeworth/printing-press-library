@@ -17,6 +17,11 @@ def _latest(items: list[dict[str, Any]], timestamp_keys: tuple[str, ...]) -> dic
     )
 
 
+def _is_commit_sha(value: Any) -> bool:
+    candidate = str(value or "")
+    return len(candidate) == 40 and all(character in "0123456789abcdef" for character in candidate.casefold())
+
+
 def verify(config: dict[str, Any], snapshot: dict[str, Any], expected_head: str) -> dict[str, Any]:
     errors: list[str] = []
     evidence: dict[str, Any] = {
@@ -24,6 +29,8 @@ def verify(config: dict[str, Any], snapshot: dict[str, Any], expected_head: str)
         "repository": snapshot.get("repository"),
         "pull_request": snapshot.get("pull_request"),
         "source_commit": snapshot.get("source_commit"),
+        "generated_commit": snapshot.get("generated_commit"),
+        "release_version": snapshot.get("release_version"),
         "head_sha": snapshot.get("head_sha"),
         "checks": [],
         "statuses": [],
@@ -33,6 +40,12 @@ def verify(config: dict[str, Any], snapshot: dict[str, Any], expected_head: str)
     head_sha = str(snapshot.get("head_sha") or "")
     if not expected_head or head_sha != expected_head:
         errors.append(f"snapshot head {head_sha or '<absent>'} does not match expected head {expected_head or '<absent>'}")
+
+    for field in ("source_commit", "generated_commit"):
+        if not _is_commit_sha(snapshot.get(field)):
+            errors.append(f"snapshot {field} is not a full commit SHA")
+    if not str(snapshot.get("release_version") or "").strip():
+        errors.append("snapshot release_version is absent")
 
     check_runs = snapshot.get("check_runs") or []
     for required_name in config.get("required_check_runs") or []:

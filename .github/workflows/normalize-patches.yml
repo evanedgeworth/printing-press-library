@@ -67,6 +67,7 @@ jobs:
           # Admin-scoped PAT so the post-commit push bypasses the main-branch
           # ruleset (default GITHUB_TOKEN cannot bypass).
           token: ${{ secrets.ADMIN_PUSH_PAT || github.token }}
+          persist-credentials: false
       - name: Normalize legacy patches files
         env:
           EVENT_NAME: ${{ github.event_name }}
@@ -131,6 +132,8 @@ jobs:
           printf '  %s\n' "${targets[@]}"
           python3 .github/scripts/normalize-patches/normalize.py "${targets[@]}"
       - name: Commit if changed
+        env:
+          GH_TOKEN: ${{ secrets.ADMIN_PUSH_PAT || github.token }}
         run: |
           set -euo pipefail
           git add -A -- library
@@ -145,5 +148,6 @@ jobs:
           # Defense-in-depth against sibling generated-artifact workflows
           # landing between checkout and push. Paths are disjoint, so the rebase
           # is conflict-free.
+          gh auth setup-git --hostname github.com
           git pull --rebase origin main
           git push
