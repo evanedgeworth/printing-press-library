@@ -16,7 +16,7 @@ class ReleaseScannerContractTest(unittest.TestCase):
     def setUp(self) -> None:
         self.head = "a" * 40
         self.config = {
-            "required_check_runs": ["Verify", "Govulncheck"],
+            "required_check_runs": ["Verify", "Govulncheck", "Scan"],
             "required_commit_statuses": ["CodeRabbit"],
             "comment_scanners": [
                 {
@@ -37,6 +37,7 @@ class ReleaseScannerContractTest(unittest.TestCase):
             "check_runs": [
                 {"id": 1, "name": "Verify", "head_sha": self.head, "status": "completed", "conclusion": "success"},
                 {"id": 2, "name": "Govulncheck", "head_sha": self.head, "status": "completed", "conclusion": "success"},
+                {"id": 5, "name": "Scan", "head_sha": self.head, "status": "completed", "conclusion": "success"},
             ],
             "statuses": [{"id": 3, "context": "CodeRabbit", "state": "success"}],
             "comments": [

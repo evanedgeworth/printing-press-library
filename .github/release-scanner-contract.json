@@ -2,6 +2,7 @@
   "schema_version": 1,
   "required_check_runs": [
     "Govulncheck",
+    "Scan",
     "Verify release scanner contract",
     "Validate SKILL.md against shipped CLI source",
     "Verify"
