@@ -24,6 +24,8 @@
         "rate limited",
         "review limit reached",
         "couldn't start this review",
+        "review skipped",
+        "draft detected",
         "review failed",
         "all tool run failures"
       ]

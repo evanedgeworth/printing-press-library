@@ -23,7 +23,7 @@ class ReleaseScannerContractTest(unittest.TestCase):
                     "name": "CodeRabbit",
                     "authors": ["coderabbitai[bot]"],
                     "success_patterns": ["walkthrough"],
-                    "failure_patterns": ["rate limited", "review failed", "review limit reached"],
+                    "failure_patterns": ["rate limited", "review failed", "review limit reached", "review skipped", "draft detected"],
                 }
             ],
         }
@@ -76,6 +76,10 @@ class ReleaseScannerContractTest(unittest.TestCase):
 
     def test_rejects_success_status_with_failed_comment(self) -> None:
         self.snapshot["comments"][0]["body"] = "## Review failed\n## Walkthrough"
+        self.assertFalse(self.verify()["compliant"])
+
+    def test_rejects_success_status_with_skipped_comment(self) -> None:
+        self.snapshot["comments"][0]["body"] = "## Review skipped\nDraft detected."
         self.assertFalse(self.verify()["compliant"])
 
     def test_rejects_wrong_head(self) -> None:
