@@ -1445,9 +1445,9 @@
       "path": "library/developer-tools/apify",
       "release": {
         "cli_name": "apify-pp-cli",
-        "version": "2026.7.1",
-        "released_at": "2026-07-08T18:21:21Z",
-        "source_commit": "11d7b4ea752c9c8fb8909037133058eb57560cc0"
+        "version": "2026.7.2",
+        "released_at": "2026-07-10T05:44:20Z",
+        "source_commit": "7e8154be29b0de64424015ef3d4d7cc00ad92152"
       },
       "printer": "kjmagnan1s",
       "printer_name": "Kevin Magnan",
@@ -2030,6 +2030,66 @@
           "AZURE_CLIENT_ID",
           "AZURE_CLIENT_SECRET",
           "AZURE_SUBSCRIPTION_ID"
+        ],
+        "mcp_ready": "full",
+        "spec_format": "internal"
+      }
+    },
+    {
+      "name": "bambu",
+      "category": "devices",
+      "api": "Bambu Local",
+      "description": "Agent-ready Bambu print monitoring with exact plate previews and start/finish payloads.",
+      "search_terms": [
+        "bambu",
+        "Bambu Local",
+        "bambu-pp-cli",
+        "Agent-ready Bambu print monitoring with exact plate previews and start/finish payloads.",
+        "The printer serial and LAN access code are both required. They are used only for direct private-LAN MQTT and FTPS connections.",
+        "Calibrated completion forecast",
+        "job eta",
+        "Correct the printer's finish estimate using the error pattern from prior runs of the same job.",
+        "Filament runway",
+        "ams runway",
+        "Estimate whether the active AMS tray can cover the current plate's remaining weight, with explicit unknown output when tray estimates or multi-material mapping are ambiguous.",
+        "Failure correlation matrix",
+        "history failure-correlations",
+        "Rank the printer, filament, plate, firmware, speed, and temperature contexts most associated with failed jobs.",
+        "Print-stage timeline",
+        "job timeline",
+        "Reconstruct one print's stages, pauses, layers, temperature recovery, and errors as an ordered timeline.",
+        "Firmware field drift",
+        "printer field-diff",
+        "Compare first and latest persisted redacted MQTT schemas for added, removed, and type-changed fields across a selected window.",
+        "Repeat-job comparison",
+        "job repeats",
+        "Compare duration, pauses, material, errors, and outcomes across repeated runs of the same plate."
+      ],
+      "path": "library/devices/bambu",
+      "release": {
+        "cli_name": "bambu-pp-cli",
+        "version": "2026.7.1",
+        "released_at": "2026-07-12T02:15:09Z",
+        "source_commit": "382949b6061fa86e2576cc7888bb61639bb3a507"
+      },
+      "printer": "twidtwid",
+      "printer_name": "Todd Dailey",
+      "creator": {
+        "handle": "twidtwid",
+        "name": "Todd Dailey"
+      },
+      "mcp": {
+        "binary": "bambu-pp-mcp",
+        "transports": [
+          "stdio",
+          "http"
+        ],
+        "tool_count": 1,
+        "public_tool_count": 0,
+        "auth_type": "api_key",
+        "env_vars": [
+          "BAMBU_SERIAL",
+          "BAMBU_ACCESS_CODE"
         ],
         "mcp_ready": "full",
         "spec_format": "internal"
@@ -16107,9 +16167,9 @@
       "path": "library/developer-tools/supabase",
       "release": {
         "cli_name": "supabase-pp-cli",
-        "version": "2026.7.1",
-        "released_at": "2026-07-08T18:21:21Z",
-        "source_commit": "11d7b4ea752c9c8fb8909037133058eb57560cc0"
+        "version": "2026.7.2",
+        "released_at": "2026-07-13T03:47:03Z",
+        "source_commit": "2ada42a94b0908b13c90c7dfd977beedb37ed844"
       },
       "printer": "giacaglia",
       "printer_name": "Giuliano Giacaglia",
@@ -16117,6 +16177,12 @@
         "handle": "giacaglia",
         "name": "Giuliano Giacaglia"
       },
+      "contributors": [
+        {
+          "handle": "evanedgeworth",
+          "name": "Evan Edgeworth"
+        }
+      ],
       "mcp": {
         "binary": "supabase-pp-mcp",
         "transports": [
@@ -16462,9 +16528,9 @@
       "path": "library/productivity/techmeme",
       "release": {
         "cli_name": "techmeme-pp-cli",
-        "version": "2026.7.2",
-        "released_at": "2026-07-08T18:21:21Z",
-        "source_commit": "11d7b4ea752c9c8fb8909037133058eb57560cc0"
+        "version": "2026.7.3",
+        "released_at": "2026-07-10T05:45:05Z",
+        "source_commit": "ff3454fa2f8f6b9d65479c6e20c1b3ff3d01ee37"
       },
       "printer": "davemorin",
       "printer_name": "Dave Morin",
