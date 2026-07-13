@@ -1,0 +1,12 @@
+reviews:
+  tools:
+    # This catalog contains hundreds of independent Go modules and no root
+    # module. CodeRabbit invokes golangci-lint from the repository root, where
+    # it cannot type-check ./...; native per-module tests, go vet, and
+    # govulncheck remain required release gates.
+    golangci-lint:
+      enabled: false
+    gitleaks:
+      enabled: true
+    actionlint:
+      enabled: true
