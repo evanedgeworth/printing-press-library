@@ -133,6 +133,7 @@ jobs:
           python3 .github/scripts/normalize-patches/normalize.py "${targets[@]}"
       - name: Commit if changed
         env:
+          ADMIN_PUSH_PAT: ${{ secrets.ADMIN_PUSH_PAT }}
           GH_TOKEN: ${{ secrets.ADMIN_PUSH_PAT || github.token }}
         run: |
           set -euo pipefail
@@ -140,6 +141,10 @@ jobs:
           if git diff --cached --quiet; then
             echo "No patches normalization changes; nothing to commit."
             exit 0
+          fi
+          if [ -z "${ADMIN_PUSH_PAT}" ] && [ "${GITHUB_REPOSITORY}" != "evanedgeworth/printing-press-library" ]; then
+            echo "::error::ADMIN_PUSH_PAT is required to push generated artifacts outside the authorized owned fork."
+            exit 1
           fi
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'

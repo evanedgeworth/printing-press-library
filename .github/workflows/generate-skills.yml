@@ -43,6 +43,7 @@ jobs:
 
       - name: Commit and push if changed
         env:
+          ADMIN_PUSH_PAT: ${{ secrets.ADMIN_PUSH_PAT }}
           GH_TOKEN: ${{ secrets.ADMIN_PUSH_PAT || github.token }}
         run: |
           git config user.name "github-actions[bot]"
@@ -51,6 +52,10 @@ jobs:
           if git diff --staged --quiet; then
             echo "No skill changes to commit"
           else
+            if [ -z "${ADMIN_PUSH_PAT}" ] && [ "${GITHUB_REPOSITORY}" != "evanedgeworth/printing-press-library" ]; then
+              echo "::error::ADMIN_PUSH_PAT is required to push generated artifacts outside the authorized owned fork."
+              exit 1
+            fi
             git commit -m "chore(skills): regenerate per-app skills [skip ci]"
             # Defense-in-depth against sibling generated-artifact workflows
             # landing between our checkout and push. They touch disjoint paths
