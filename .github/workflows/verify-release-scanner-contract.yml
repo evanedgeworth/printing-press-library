@@ -15,3 +15,5 @@ jobs:
       - uses: actions/checkout@v6
       - name: Run fail-closed contract tests
         run: python3 .github/scripts/verify-release-scanners/verify_release_scanners_test.py
+      - name: Validate every MCPB manifest
+        run: python3 .github/scripts/verify-manifest/verify_manifest.py

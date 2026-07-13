@@ -4,8 +4,7 @@
     "Govulncheck",
     "Verify release scanner contract",
     "Validate SKILL.md against shipped CLI source",
-    "Verify",
-    "Validate MCPB manifest contract"
+    "Verify"
   ],
   "required_commit_statuses": [
     "CodeRabbit"
