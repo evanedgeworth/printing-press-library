@@ -31,7 +31,8 @@ jobs:
           ref: main
           # Admin-scoped PAT so the post-commit push bypasses the
           # main-branch ruleset (default GITHUB_TOKEN cannot bypass).
-          token: ${{ secrets.ADMIN_PUSH_PAT }}
+          token: ${{ secrets.ADMIN_PUSH_PAT || github.token }}
+          persist-credentials: false
 
       - uses: actions/setup-go@v6
         with:
@@ -41,6 +42,9 @@ jobs:
         run: go run ./tools/generate-skills/main.go
 
       - name: Commit and push if changed
+        env:
+          ADMIN_PUSH_PAT: ${{ secrets.ADMIN_PUSH_PAT }}
+          GH_TOKEN: ${{ secrets.ADMIN_PUSH_PAT || github.token }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -48,11 +52,16 @@ jobs:
           if git diff --staged --quiet; then
             echo "No skill changes to commit"
           else
+            if [ -z "${ADMIN_PUSH_PAT}" ] && [ "${GITHUB_REPOSITORY}" != "evanedgeworth/printing-press-library" ]; then
+              echo "::error::ADMIN_PUSH_PAT is required to push generated artifacts outside the authorized owned fork."
+              exit 1
+            fi
             git commit -m "chore(skills): regenerate per-app skills [skip ci]"
             # Defense-in-depth against sibling generated-artifact workflows
             # landing between our checkout and push. They touch disjoint paths
             # (cli-skills/ vs registry.json + README.md or library release
             # metadata), so the rebase is conflict-free in practice.
+            gh auth setup-git --hostname github.com
             git pull --rebase origin main
             git push
           fi

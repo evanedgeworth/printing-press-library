@@ -66,7 +66,8 @@ jobs:
           fetch-depth: 2
           # Admin-scoped PAT so the post-commit push bypasses the main-branch
           # ruleset (default GITHUB_TOKEN cannot bypass).
-          token: ${{ secrets.ADMIN_PUSH_PAT }}
+          token: ${{ secrets.ADMIN_PUSH_PAT || github.token }}
+          persist-credentials: false
       - name: Normalize legacy patches files
         env:
           EVENT_NAME: ${{ github.event_name }}
@@ -131,12 +132,19 @@ jobs:
           printf '  %s\n' "${targets[@]}"
           python3 .github/scripts/normalize-patches/normalize.py "${targets[@]}"
       - name: Commit if changed
+        env:
+          ADMIN_PUSH_PAT: ${{ secrets.ADMIN_PUSH_PAT }}
+          GH_TOKEN: ${{ secrets.ADMIN_PUSH_PAT || github.token }}
         run: |
           set -euo pipefail
           git add -A -- library
           if git diff --cached --quiet; then
             echo "No patches normalization changes; nothing to commit."
             exit 0
+          fi
+          if [ -z "${ADMIN_PUSH_PAT}" ] && [ "${GITHUB_REPOSITORY}" != "evanedgeworth/printing-press-library" ]; then
+            echo "::error::ADMIN_PUSH_PAT is required to push generated artifacts outside the authorized owned fork."
+            exit 1
           fi
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
@@ -145,5 +153,6 @@ jobs:
           # Defense-in-depth against sibling generated-artifact workflows
           # landing between checkout and push. Paths are disjoint, so the rebase
           # is conflict-free.
+          gh auth setup-git --hostname github.com
           git pull --rebase origin main
           git push
