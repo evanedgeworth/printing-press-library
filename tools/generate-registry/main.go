@@ -71,6 +71,7 @@ type RegistryEntry struct {
 	Description string   `json:"description"`
 	SearchTerms []string `json:"search_terms,omitempty"`
 	Path        string   `json:"path"`
+	Release     *Release `json:"release,omitempty"`
 	sourceAPI   string
 	// Printer is the GitHub @handle of the human who originally ran the
 	// press for this CLI. Sourced verbatim from .printing-press.json's
@@ -124,6 +125,17 @@ type MCPBlock struct {
 	EnvVars         []string `json:"env_vars"`
 	MCPReady        string   `json:"mcp_ready,omitempty"`
 	SpecFormat      string   `json:"spec_format,omitempty"`
+}
+
+// Release is the catalog-facing subset of a CLI's
+// .printing-press-release.json. It lets search/list JSON consumers compare an
+// installed binary's --version output with the current catalog version without
+// falling back to go module build metadata or repo inspection.
+type Release struct {
+	CLIName      string `json:"cli_name"`
+	Version      string `json:"version"`
+	ReleasedAt   string `json:"released_at"`
+	SourceCommit string `json:"source_commit"`
 }
 
 // printingPressManifest captures the subset of .printing-press.json fields
@@ -408,6 +420,18 @@ func buildEntry(dir, category, slug string, existing map[string]RegistryEntry) (
 		pp.CatalogDescription,
 	)
 	entry.SearchTerms = searchTerms(pp)
+	if release, err := readRelease(filepath.Join(dir, ".printing-press-release.json")); err != nil {
+		return nil, err
+	} else if release != nil && !isUnreleasedSkeleton(release) {
+		// Skip an unreleased skeleton (version/released_at/source_commit all
+		// blank, before the post-merge release workflow stamps them). Emitting
+		// it would put a release block with empty required fields into
+		// registry.json, which the npm installer's parseRegistryEntry rejects as
+		// malformed — skipping the whole CLI. Omitting it keeps the generated
+		// registry, the --validate gate, and the npm parser consistent: a
+		// release block is present only once the CLI is actually released.
+		entry.Release = release
+	}
 
 	// MCP block preference: derive from .printing-press.json when it
 	// declares mcp_binary (the modern, authoritative source) > preserve
@@ -429,6 +453,42 @@ func buildEntry(dir, category, slug string, existing map[string]RegistryEntry) (
 	}
 
 	return &entry, nil
+}
+
+// isUnreleasedSkeleton reports whether a release ledger is a well-formed
+// freshly-printed skeleton not yet stamped by the post-merge release workflow:
+// cli_name is present (written at print time) while version, released_at, and
+// source_commit are all blank. source_commit is the merge commit and cannot
+// exist while a publish PR is open, so an unreleased skeleton is the normal
+// pre-merge state and is treated as "no release block" for the catalog — the
+// registry omits it rather than emitting empty required fields that the npm
+// installer's parseRegistryEntry would reject.
+//
+// cli_name is required for the skeleton classification so a malformed ledger
+// with a blank cli_name is NOT silently omitted: it stays a non-nil release
+// block and validateEntries still flags the empty cli_name, preserving the
+// pre-existing gate against a printer-workflow misfire.
+func isUnreleasedSkeleton(r *Release) bool {
+	return r != nil &&
+		strings.TrimSpace(r.CLIName) != "" &&
+		strings.TrimSpace(r.Version) == "" &&
+		strings.TrimSpace(r.ReleasedAt) == "" &&
+		strings.TrimSpace(r.SourceCommit) == ""
+}
+
+func readRelease(path string) (*Release, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("reading %s: %w", path, err)
+	}
+	var release Release
+	if err := json.Unmarshal(data, &release); err != nil {
+		return nil, fmt.Errorf("parsing %s: %w", path, err)
+	}
+	return &release, nil
 }
 
 func repairDuplicateAPIDisplayNames(entries []RegistryEntry) {
@@ -573,6 +633,20 @@ func validateEntries(entries []RegistryEntry) []string {
 			}
 			if isBlank(e.MCP.AuthType) {
 				errs = append(errs, fmt.Sprintf("%s: mcp.auth_type is empty", slug))
+			}
+		}
+		if e.Release != nil {
+			if isBlank(e.Release.CLIName) {
+				errs = append(errs, fmt.Sprintf("%s: release.cli_name is empty", slug))
+			}
+			if isBlank(e.Release.Version) {
+				errs = append(errs, fmt.Sprintf("%s: release.version is empty", slug))
+			}
+			if isBlank(e.Release.ReleasedAt) {
+				errs = append(errs, fmt.Sprintf("%s: release.released_at is empty", slug))
+			}
+			if isBlank(e.Release.SourceCommit) {
+				errs = append(errs, fmt.Sprintf("%s: release.source_commit is empty", slug))
 			}
 		}
 	}

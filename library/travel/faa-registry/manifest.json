@@ -1,0 +1,27 @@
+{
+  "manifest_version": "0.3",
+  "name": "faa-registry-pp-mcp",
+  "display_name": "FAA Aircraft Registry",
+  "version": "0.1.0",
+  "description": "Every FAA aircraft lookup the registry website offers, plus a daily-synced offline copy of the entire US registry that unlocks fleet reports, hex decoding, ownership history, and expiration alerts no other tool has.",
+  "author": {
+    "name": "CLI Printing Press"
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/faa-registry-pp-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/faa-registry-pp-mcp",
+      "args": []
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  }
+}

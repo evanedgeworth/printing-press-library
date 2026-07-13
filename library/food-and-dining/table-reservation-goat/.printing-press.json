@@ -9,6 +9,12 @@
     "handle": "pejmanjohn",
     "name": "Pejman Pour-Moezzi"
   },
+  "contributors": [
+    {
+      "handle": "ganes-j",
+      "name": "Jesse Ganes"
+    }
+  ],
   "owner": "pejman-pour-moezzi",
   "printer_name": "Pejman Pour-Moezzi",
   "spec_format": "internal",
@@ -43,5 +49,6 @@
     }
   ],
   "printer": "pejmanjohn",
-  "owner_name": "Pejman Pour-Moezzi"
+  "owner_name": "Pejman Pour-Moezzi",
+  "description": "One reservation CLI for OpenTable, Tock, and Resy — search all three networks at once, watch for cancellations, book, and track changes from a local store agents can query."
 }

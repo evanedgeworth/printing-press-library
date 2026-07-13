@@ -1,6 +1,6 @@
 ---
 name: pp-flight-goat
-description: "Search Google Flights, scan Kayak long-haul routes, and join FlightAware AeroAPI reliability, alerts, and tracking from one CLI."
+description: "Find real fares with Google Flights, scan Kayak nonstop/long-haul routes, and add FlightAware reliability/tracking only when operational context matters."
 author: "Matt Van Horn"
 license: "Apache-2.0"
 argument-hint: "<command> [args] | install cli|mcp"
@@ -18,6 +18,21 @@ metadata:
 
 # Flight Goat — Printing Press CLI
 
+## What this skill is for
+
+Use Flight Goat when the user is making a flight decision, not merely looking up an aviation API endpoint.
+
+Default to the free fare and route-discovery commands first:
+
+- `flights` — Google Flights fare search for a specific itinerary.
+- `dates` — cheapest-date scan across a travel window.
+- `explore` — nonstop destinations from an airport using Kayak route data.
+- `longhaul` and `cheapest-longhaul` — long-haul route discovery and cheap-date scans.
+- `compare` — fares plus route reliability when operational risk matters.
+- `assess` — delayed-flight/rebooking assessment using airport, route, weather, and optional price context.
+
+FlightAware AeroAPI is secondary and optional. Use AeroAPI-backed commands when the user needs live status, airport delays, disruption counts, aircraft/tail history, alerts, route reliability, or Foresight predictions. Do not present the whole CLI as credential-gated: Google Flights and Kayak-backed commands work without `FLIGHT_GOAT_API_KEY_AUTH`.
+
 ## Prerequisites: Install the CLI
 
 This skill drives the `flight-goat-pp-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
@@ -29,7 +44,7 @@ This skill drives the `flight-goat-pp-cli` binary. **You must verify the CLI is 
 2. Verify: `flight-goat-pp-cli --version`
 3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
 
-If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.26.3 or newer):
+If the `npx` install fails (no Node, offline, etc.), fall back to a direct Go install (requires Go 1.26.5 or newer):
 
 ```bash
 go install github.com/mvanhorn/printing-press-library/library/travel/flight-goat/cmd/flight-goat-pp-cli@latest
@@ -37,16 +52,18 @@ go install github.com/mvanhorn/printing-press-library/library/travel/flight-goat
 
 If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
-## Categories
-AeroAPI is divided into several categories to make things easier to
-discover.
-- Flights: Summary information, planned routes, positions and more
-- Foresight: Flight positions enhanced with FlightAware Foresight™
-- Airports: Airport information and FIDS style resources
-- Operators: Operator information and fleet activity resources
-- Alerts: Configure flight alerts and delivery destinations
-- History: Historical flight access for various endpoints
-- Miscellaneous: Flight disruption, future schedule information, and aircraft owner information
+## Data sources and credential posture
+
+| Job | Primary commands | Credential |
+|---|---|---|
+| Find fares for known dates | `flights`, `gf-search` | None |
+| Find cheaper travel dates | `dates`, `cheapest-longhaul` | None |
+| Discover nonstop or long-haul destinations | `explore`, `longhaul` | None |
+| Weigh price against reliability | `compare`, `reliability`, `assess` | AeroAPI improves reliability/status evidence |
+| Monitor or investigate live operations | `monitor`, `ontime-now`, `digest`, `heatmap`, `aircraft-bio`, `eta`, `resolve` | Usually needs AeroAPI |
+| Manage FlightAware alerting/history/airport/operator APIs | `alerts`, `history`, `airports`, `operators`, `schedules`, `foresight` | AeroAPI required |
+
+If the user asks a normal travel-planning question, start with Google Flights/Kayak commands. Reach for AeroAPI only when operational evidence changes the decision.
 
 ## Google Flights Currency
 
@@ -54,14 +71,84 @@ Use `--currency <ISO-4217-code>` when the user wants Google Flights prices in a
 specific currency. Omit it for the default USD behavior.
 
 ```bash
-flight-goat-pp-cli flights MAN AGP 2026-05-10 --currency GBP --sort cheapest --agent
+flight-goat-pp-cli flights MAN AGP 2026-05-10 --currency GBP --sort=cheapest --agent
 flight-goat-pp-cli dates JFK CDG --from 2026-07-01 --to 2026-07-31 --currency EUR --sort --agent
 flight-goat-pp-cli compare SEA LHR 2026-06-15 --currency GBP --agent
 ```
 
 The flag is only valid on Google Flights price commands: `flights`, `dates`,
-`compare`, `gf-search`, and `cheapest-longhaul`. Do not add it to AeroAPI or
-Kayak-only commands.
+`compare`, `gf-search`, and `cheapest-longhaul`. Do not add it to AeroAPI,
+Kayak-only, or `soar` commands (FlySoar prices in USD only — see below).
+
+## FlySoar (Duffel) Price Search
+
+`soar` is a third price source alongside Google Flights (`flights`) and Kayak.
+It queries [FlySoar.ai](https://flysoar.ai) — a Duffel-backed metasearch whose
+fares come from Duffel's aggregated NDC + GDS content — for a specific route and
+date. No API key, no auth. Use it as a second opinion on price when Google
+Flights and FlySoar may surface different fares for the same itinerary.
+
+```bash
+# Cheapest SEA -> DEN on Sep 21 (JSON for agents)
+flight-goat-pp-cli soar SEA DEN 2026-09-21 --agent
+
+# First class one-way
+flight-goat-pp-cli soar SEA DEN 2026-09-21 --class first --agent
+
+# Round trip business class
+flight-goat-pp-cli soar JFK LHR 2026-07-15 --return 2026-07-22 --class business --agent
+
+# Nonstop or one-stop, on Delta or United only
+flight-goat-pp-cli soar DCA IAH 2026-09-23 --class first --stops 0,1 --airlines DL,UA --agent
+```
+
+Cabin values: `economy` (default), `premium_economy`, `business`, `first`.
+Flags mirror `flights` where they overlap (`--return`, `--class`,
+`--passengers`, `--airlines`). Two more map FlySoar's GUI filters:
+
+- `--stops` — a comma list of **allowed** stop counts (`0` = nonstop, `1`, `2`).
+  `--stops 0,1` keeps nonstop and one-stop itineraries. It is a set, not a max.
+- `--airlines` — a whitelist of two-letter IATA carrier codes (`--airlines DL,UA`);
+  keeps itineraries flown end-to-end by those carriers.
+
+Both filter the returned results **and** are encoded in `search_url` (as FlySoar's
+`stops=0,1` / `airlines=DL,UA` query params), so opening the link shows the same
+filtered search. There is no `--currency`: FlySoar's anonymous endpoint prices
+every offer in USD regardless of any requested currency. Results are normalized
+to the same leg/itinerary shape as `flights`, sorted cheapest-first, with
+identical itineraries deduped to the lowest fare. `price` is **per-seat** (as in
+`flights`): FlySoar quotes the party total, and `soar` divides by `--passengers`,
+so multiply by passenger count for the trip total.
+
+**Booking is a handoff, not an API call.** FlySoar has no anonymous booking
+endpoint — the actual purchase runs through its conversational **iMessage agent**
+or its authenticated web app (both need a FlySoar account with a saved traveler +
+payment method). `soar` prices the search and hands off: the `booking` block
+carries a pre-composed natural-language `request`, an `imessage_url` that opens a
+new iMessage to FlySoar's agent with the request filled in, and a `web_url` deep
+link. `search_url` is the same web deep link at the top level.
+
+```json
+{
+  "success": true,
+  "source": "flysoar",
+  "trip_type": "one_way",
+  "count": 96,
+  "flights": [ { "price": 94.98, "currency": "USD", "stops": 0, "legs": [ ... ] } ],
+  "search_url": "https://flysoar.ai/flights/sea/den/260921/?cabin=economy&trip=oneway",
+  "booking": {
+    "method": "handoff",
+    "request": "DEN -> SEA on 2026-09-28, first class",
+    "imessage_agent": "+14156299322",
+    "imessage_url": "sms:+14156299322?body=DEN+-%3E+SEA+on+2026-09-28%2C+first+class",
+    "web_url": "https://flysoar.ai/flights/den/sea/260928/?cabin=first&trip=oneway"
+  }
+}
+```
+
+To book: send `booking.request` to `booking.imessage_agent` over iMessage (or
+open `booking.imessage_url`), then complete traveler/payment/verification in the
+chat; or open `booking.web_url`. Never claim `soar` itself placed a booking.
 
 ## Delay Assessment
 
@@ -83,31 +170,9 @@ complete all-clear. Use `--include-raw` only when the original AeroAPI JSON is
 needed for audit or custom scoring. FAA NOTAM data is not part of this command
 yet.
 
-## Development Tools
-AeroAPI is defined using the OpenAPI Spec 3.0, which means it can be easily
-imported into tools like Postman. To get started try importing the API
-specification using
-[Postman's instructions](https://learning.postman.com/docs/integrations/available-integrations/working-with-openAPI/).
-Once imported as a collection only the "Value" field under the collection's
-Authorization tab needs to be populated and saved before making calls.
+## AeroAPI endpoint families
 
-The AeroAPI OpenAPI specification is located at:\
-https://flightaware.com/commercial/aeroapi/resources/aeroapi-openapi.yml
-
-Our [open source AeroApps project](/aeroapi/portal/resources)
-provides a small collection of services and sample applications to help
-you get started.
-
-The Flight Information Display System (FIDS) AeroApp is an example of a
-multi-tier application using multiple languages and Docker containers.
-It demonstrates connectivity, data caching, flight presentation, and leveraging flight maps.
-
-The Alerts AeroApp demonstrates the use of AeroAPI to set, edit, and
-receive alerts in a sample application with a Dockerized Python backend
-and a React frontend.
-
-Our AeroAPI push notification [testing interface](/commercial/aeroapi/send.rvt)
-provides a quick and easy way to test the delivery of customized alerts via AeroAPI push.
+AeroAPI still matters when the task is operational rather than fare-shopping. The generated command reference below exposes FlightAware endpoint families for current and historical flights, Foresight predictions, airports, operators, alerts, schedules, and disruption counts. Treat those as the operational layer behind the higher-level decision commands, not as the CLI's core value proposition.
 
 ## Command Reference
 
@@ -246,7 +311,9 @@ flight-goat-pp-cli which "<capability in your own words>"
 
 ## Auth Setup
 
-Set your API key via environment variable:
+Do **not** require AeroAPI auth for normal fare discovery. `flights`, `dates`, `explore`, `longhaul`, `gf-search`, and `cheapest-longhaul` can run without `FLIGHT_GOAT_API_KEY_AUTH`.
+
+Set the optional AeroAPI key only when the user needs FlightAware-backed status, reliability, alerts, history, aircraft/tail, disruption, or Foresight commands:
 
 ```bash
 export FLIGHT_GOAT_API_KEY_AUTH="<your-key>"
@@ -254,7 +321,7 @@ export FLIGHT_GOAT_API_KEY_AUTH="<your-key>"
 
 Or persist it in `~/.config/flight-goat-pp-cli/config.toml`.
 
-Run `flight-goat-pp-cli doctor` to verify setup.
+Run `flight-goat-pp-cli doctor` to verify which upstreams are configured.
 
 ## Agent Mode
 
@@ -264,7 +331,7 @@ Add `--agent` to any command. Expands to: `--json --compact --no-input --no-colo
 - **Filterable** — `--select` keeps a subset of fields. Dotted paths descend into nested structures; arrays traverse element-wise. Critical for keeping context small on verbose APIs:
 
   ```bash
-  flight-goat-pp-cli airports get mock-value --agent --select id,name,status
+  flight-goat-pp-cli airports get KSEA --agent --select id,name,status
   ```
 - **Previewable** — `--dry-run` shows the request without sending
 - **Offline-friendly** — sync/search commands can use the local SQLite store when available
@@ -340,11 +407,11 @@ Unknown schemes are refused with a structured error naming the supported set. We
 A profile is a saved set of flag values, reused across invocations. Use it when a scheduled agent calls the same command every run with the same configuration - HeyGen's "Beacon" pattern.
 
 ```
-flight-goat-pp-cli profile save briefing --json
-flight-goat-pp-cli --profile briefing airports get mock-value
+flight-goat-pp-cli profile save agent-json --json --compact --no-input --no-color --yes
+flight-goat-pp-cli --profile agent-json dates SEA LHR --from 2026-06-01 --to 2026-08-31 --sort
 flight-goat-pp-cli profile list --json
-flight-goat-pp-cli profile show briefing
-flight-goat-pp-cli profile delete briefing --yes
+flight-goat-pp-cli profile show agent-json
+flight-goat-pp-cli profile delete agent-json --yes
 ```
 
 Explicit flags always win over profile values; profile values win over defaults. `agent-context` lists all available profiles under `available_profiles` so introspecting agents discover them at runtime.

@@ -5,6 +5,7 @@
 OpenTable, Tock, and Resy split the US fine-dining world between them and share zero data. This CLI unifies them: `goat` searches all three at once, `watch` polls each network for cancellations, `earliest` composes availability across all three, and `drift` surfaces what changed at a venue since your last look. Auth is `auth login --chrome` (for OT + Tock cookies) plus `auth login --resy --email <you@example.com>` (for the Resy API token) — no partner keys.
 
 Created by [@pejmanjohn](https://github.com/pejmanjohn) (Pejman Pour-Moezzi).
+Contributors: [@ganes-j](https://github.com/ganes-j) (Jesse Ganes).
 
 ## Install
 
@@ -35,7 +36,7 @@ npx -y @mvanhorn/printing-press-library install table-reservation-goat --agent c
 
 ### Without Node (Go fallback)
 
-If `npx` isn't available (no Node, offline), install the CLI directly via Go (requires Go 1.26.3 or newer):
+If `npx` isn't available (no Node, offline), install the CLI directly via Go (requires Go 1.26.5 or newer):
 
 ```bash
 go install github.com/mvanhorn/printing-press-library/library/food-and-dining/table-reservation-goat/cmd/table-reservation-goat-pp-cli@latest

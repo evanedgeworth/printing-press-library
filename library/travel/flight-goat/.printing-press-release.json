@@ -2,16 +2,16 @@
   "schema_version": 1,
   "slug": "flight-goat",
   "cli_name": "flight-goat-pp-cli",
-  "version": "2026.6.3",
-  "released_at": "2026-06-17T07:24:49Z",
-  "source_commit": "3eb79e729ee8ecb224a83ed8738aa242296dd642",
+  "version": "2026.7.2",
+  "released_at": "2026-07-10T05:42:37Z",
+  "source_commit": "64702c4716584fe5c16bc438a5bc204803347b73",
   "printing_press_version": "3.6.0",
   "changes": [
     {
-      "title": "fix(flight-goat): fall back to server-rendered HTML when Google gates the flights RPC",
-      "pr": 1148,
-      "url": "https://github.com/mvanhorn/printing-press-library/pull/1148",
-      "commit": "3eb79e729ee8ecb224a83ed8738aa242296dd642"
+      "title": "feat(cli): add FlySoar (Soar) price source + booking handoff to flight-goat",
+      "pr": 1445,
+      "url": "https://github.com/mvanhorn/printing-press-library/pull/1445",
+      "commit": "64702c4716584fe5c16bc438a5bc204803347b73"
     }
   ]
 }
