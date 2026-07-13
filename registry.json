@@ -16167,9 +16167,9 @@
       "path": "library/developer-tools/supabase",
       "release": {
         "cli_name": "supabase-pp-cli",
-        "version": "2026.7.2",
-        "released_at": "2026-07-13T03:47:03Z",
-        "source_commit": "2ada42a94b0908b13c90c7dfd977beedb37ed844"
+        "version": "2026.7.3",
+        "released_at": "2026-07-13T13:36:53Z",
+        "source_commit": "7ea7f0239ea5467d46653b780cc353156708a43d"
       },
       "printer": "giacaglia",
       "printer_name": "Giuliano Giacaglia",
