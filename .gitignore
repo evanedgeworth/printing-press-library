@@ -66,9 +66,13 @@ AGENTS.override.md
 # experimental skills live next to this checkout without being published from
 # this public repo. Already-tracked files remain tracked unless intentionally
 # removed from git later.
-.claude/skills/
+.claude/skills/*
 .skills/
-.agents/skills/
+.agents/skills/*
+!.agents/skills/printing-press-contribution/
+!.agents/skills/printing-press-contribution/SKILL.md
+!.agents/skills/printing-press-patch-ledger/
+!.agents/skills/printing-press-patch-ledger/SKILL.md
 .codex/skills/
 .cursor/skills/
 .gemini/skills/
